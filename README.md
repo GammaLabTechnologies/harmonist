@@ -6,6 +6,7 @@
 
 *A drop-in multi-agent framework for Cursor, Claude Code, Copilot, Windsurf, Aider, and other AI coding assistants.*
 
+[![GitHub stars](https://img.shields.io/github/stars/GammaLabTechnologies/harmonist?style=flat&logo=github&color=yellow)](https://github.com/GammaLabTechnologies/harmonist/stargazers)
 [![CI](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml/badge.svg)](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
