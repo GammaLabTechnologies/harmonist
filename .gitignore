@@ -1,0 +1,18 @@
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+node_modules/
+*.log
+.env
+.env.local
+
+# Local telemetry written by enforcement hooks when the pack itself is
+# run from its own repo (dev / tests). Never belongs in the pack git tree.
+telemetry/
+.cursor/telemetry/
+
+# Private maintainer notes. The public repo ships only the canonical
+# English documentation.
+README.ru.md

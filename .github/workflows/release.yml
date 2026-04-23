@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    name: Draft GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify pack health
+        run: python3 agents/scripts/check_pack_health.py
+
+      - name: Verify tag matches VERSION
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          file="$(cat VERSION | tr -d '[:space:]')"
+          if [ "$tag" != "$file" ]; then
+            echo "Tag v$tag does not match VERSION=$file" >&2
+            exit 1
+          fi
+
+      - name: Extract release notes for this version
+        id: notes
+        run: |
+          version="$(cat VERSION | tr -d '[:space:]')"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { capture=1; next }
+            capture && /^## \[/ { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          echo "---"
+          cat release-notes.md
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: "Harmonist v${{ github.ref_name }}"
+          body_path: release-notes.md
+          fail_on_unmatched_files: false

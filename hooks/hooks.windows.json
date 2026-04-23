@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "_comment": "Windows-native variant of hooks.json. Copy this file over hooks.json on Windows systems that do not have WSL / Git Bash. It invokes the pure-Python hook runner, which is bit-for-bit compatible with the POSIX .sh scripts. Requires python3 on PATH (Python 3.9+).",
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py sessionStart"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py afterFileEdit"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStart"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStop"
+      }
+    ],
+    "stop": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py stop",
+        "loop_limit": 3
+      }
+    ]
+  }
+}

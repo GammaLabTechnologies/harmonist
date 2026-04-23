@@ -1,0 +1,219 @@
+stages:
+  - validate
+
+default:
+  image: python:3.12-slim
+  before_script:
+    - python3 --version
+    - apt-get update -qq && apt-get install -y -qq bash git make lsof procps >/dev/null
+
+lint-agents:
+  stage: validate
+  script:
+    - echo "Linting every agent under agents/ against Schema v2..."
+    - bash agents/scripts/lint-agents.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/**/*.md
+        - agents/SCHEMA.md
+        - agents/scripts/lint_agents.py
+        - agents/scripts/lint-agents.sh
+        - agents/scripts/migrate_schema.py
+
+detect-clones:
+  stage: validate
+  allow_failure: true  # warn-only; curate disambiguation over time
+  script:
+    - echo "Scanning for same-category clone clusters without disambiguation..."
+    - python3 agents/scripts/build_index.py --check
+    - python3 agents/scripts/detect_clones.py
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/**/*.md
+        - agents/tags.json
+        - agents/scripts/detect_clones.py
+
+extract-essentials:
+  stage: validate
+  script:
+    - echo "Testing thin-variant extraction..."
+    - bash agents/scripts/test_extract_essentials.sh
+    - 'echo "Sanity: thin conversion produces output..."'
+    - rm -rf /tmp/thin-smoke
+    - bash agents/scripts/convert.sh --tool cursor --thin --out /tmp/thin-smoke > /dev/null
+    - test -s /tmp/thin-smoke/cursor/rules/security-engineer.mdc
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/**/*.md
+        - agents/scripts/extract_essentials.py
+        - agents/scripts/convert.sh
+
+project-context:
+  stage: validate
+  script:
+    - echo "Testing project_context.py preamble extractor..."
+    - bash agents/scripts/test_project_context.sh
+    - "echo \"Smoke: pack's own AGENTS.md produces a non-empty preamble...\""
+    - test -n "$(python3 agents/scripts/project_context.py)"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/scripts/project_context.py
+        - AGENTS.md
+
+verify-integration:
+  stage: validate
+  script:
+    - echo "Testing verify_integration.py on synthetic bad + good fixtures..."
+    - bash agents/scripts/test_verify_integration.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/scripts/verify_integration.py
+        - agents/scripts/test_verify_integration.sh
+        - integration-prompt.md
+
+upgrade:
+  stage: validate
+  script:
+    - echo "Testing upgrade.py on synthetic project (dry-run, apply, bump, downgrade)..."
+    - bash agents/scripts/test_upgrade.sh
+    - echo "Testing AGENTS.md merge driver..."
+    - bash agents/scripts/test_merge_agents_md.sh
+    - echo "Testing memory-privacy defences (secrets scan + gitignore + leak scanner)..."
+    - bash agents/scripts/test_memory_privacy.sh
+    - echo "Testing bg-regression auto-detection..."
+    - bash agents/scripts/test_detect_regression.sh
+    - echo "Testing post-integration smoke-test driver..."
+    - bash agents/scripts/test_smoke_test.sh
+    - echo "Testing pack health checker..."
+    - bash agents/scripts/test_check_pack_health.sh
+    - echo "Testing real-regression runner..."
+    - bash agents/scripts/test_run_regression.sh
+    - echo "Testing agent-freshness scanner..."
+    - bash agents/scripts/test_freshness.sh
+    - echo "Testing local-telemetry + usage report..."
+    - bash agents/scripts/test_telemetry.sh
+    - echo "Testing telemetry-webhook forwarder..."
+    - bash agents/scripts/test_telemetry_webhook.sh
+    - echo "Testing python-version guard + refresh..."
+    - bash agents/scripts/test_py_guard.sh
+    - echo "Refreshed guards should match committed state..."
+    - python3 agents/scripts/refresh_py_guard.py --check
+    - echo "Testing supply-chain integrity (manifest + safety scan)..."
+    - bash agents/scripts/test_supply_chain.sh
+    - echo "MANIFEST.sha256 matches committed contents..."
+    - python3 agents/scripts/build_manifest.py --check
+    - echo "Scanning pack catalog for prompt-injection patterns..."
+    - python3 agents/scripts/scan_agent_safety.py
+    - echo "Testing Cursor-rules conflict scanner + upgrade.py bootstrap..."
+    - bash agents/scripts/test_rules_conflicts.sh
+    - echo "Testing integrate.py / deintegrate.py lifecycle..."
+    - bash agents/scripts/test_integrate_deintegrate.sh
+    - echo "Testing install_extras.py (slug / role / tag / thin / supply-chain guard)..."
+    - bash agents/scripts/test_install_extras.sh
+    - echo "Testing onboard.py walkthrough..."
+    - bash agents/scripts/test_onboard.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/scripts/upgrade.py
+        - agents/scripts/integrate.py
+        - agents/scripts/deintegrate.py
+        - agents/scripts/install_extras.py
+        - agents/scripts/onboard.py
+        - agents/scripts/merge_agents_md.py
+        - agents/scripts/test_upgrade.sh
+        - agents/scripts/test_integrate_deintegrate.sh
+        - agents/scripts/test_install_extras.sh
+        - agents/scripts/test_onboard.sh
+        - agents/scripts/test_merge_agents_md.sh
+        - agents/scripts/run_regression.py
+        - agents/scripts/detect_regression_commands.py
+        - agents/scripts/test_run_regression.sh
+        - agents/scripts/scan_agent_freshness.py
+        - agents/scripts/test_freshness.sh
+        - agents/scripts/telemetry_webhook.py
+        - agents/scripts/test_telemetry_webhook.sh
+        - MANIFEST.sha256
+        - VERSION
+        - CHANGELOG.md
+        - AGENTS.md
+        - hooks/**
+        - memory/memory.py
+        - memory/validate.py
+
+index-up-to-date:
+  stage: validate
+  script:
+    - echo "Ensuring agents/index.json matches the source files..."
+    - python3 agents/scripts/build_index.py --check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/**/*.md
+        - agents/index.json
+        - agents/scripts/build_index.py
+        - agents/scripts/migrate_schema.py
+
+migrate-is-idempotent:
+  stage: validate
+  script:
+    - echo "Running migrator twice; second pass must report 0 changes..."
+    - python3 agents/scripts/migrate_schema.py >/tmp/run1.txt
+    - tail -n 1 /tmp/run1.txt
+    - python3 agents/scripts/migrate_schema.py >/tmp/run2.txt
+    - tail -n 1 /tmp/run2.txt
+    - grep -q "Updated 0 files" /tmp/run2.txt
+    - git diff --exit-code
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/**/*.md
+        - agents/scripts/migrate_schema.py
+
+enforcement-hooks:
+  stage: validate
+  script:
+    - echo "Running enforcement-hook integration tests..."
+    - bash hooks/tests/run-hook-tests.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - hooks/**
+        - memory/memory.py
+        - memory/validate.py
+
+memory-schema:
+  stage: validate
+  script:
+    - echo "Validating the shipped memory templates..."
+    - python3 memory/validate.py --path memory --strict
+    - echo "Running memory CLI integration tests..."
+    - bash memory/tests/run-memory-tests.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - memory/**

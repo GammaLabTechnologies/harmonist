@@ -1,0 +1,80 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Node.js (if adding web tools later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Python (if adding scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Personal notes and scratch files
+scratch/
+notes/
+TODO.md
+NOTES.md
+
+# Generated integration files — run scripts/convert.sh to regenerate locally
+# The scripts/ and integrations/*/README.md files ARE committed; only generated
+# agent/skill files are excluded.
+integrations/antigravity/pack-*/
+integrations/gemini-cli/skills/
+integrations/gemini-cli/gemini-extension.json
+integrations/opencode/agents/
+integrations/cursor/rules/
+integrations/aider/CONVENTIONS.md
+integrations/windsurf/.windsurfrules
+integrations/openclaw/*
+integrations/qwen/agents/
+integrations/kimi/*/
+!integrations/openclaw/README.md
+!integrations/kimi/README.md

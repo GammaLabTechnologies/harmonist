@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Pack health + full regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lint every agent
+        run: bash agents/scripts/lint-agents.sh
+
+      - name: Ensure agents/index.json is up to date
+        run: python3 agents/scripts/build_index.py --check
+
+      - name: Detect clone clusters without disambiguation (warn only)
+        continue-on-error: true
+        run: python3 agents/scripts/detect_clones.py
+
+      - name: Extract-essentials unit tests
+        run: bash agents/scripts/test_extract_essentials.sh
+
+      - name: Thin-conversion smoke test
+        run: |
+          rm -rf /tmp/thin-smoke
+          bash agents/scripts/convert.sh --tool cursor --thin --out /tmp/thin-smoke > /dev/null
+          test -s /tmp/thin-smoke/cursor/rules/security-engineer.mdc
+
+      - name: project_context.py tests
+        run: bash agents/scripts/test_project_context.sh
+
+      - name: project_context smoke against pack AGENTS.md
+        run: test -n "$(python3 agents/scripts/project_context.py)"
+
+      - name: verify_integration.py tests
+        run: bash agents/scripts/test_verify_integration.sh
+
+      - name: upgrade.py tests
+        run: bash agents/scripts/test_upgrade.sh
+
+      - name: merge_agents_md.py tests
+        run: bash agents/scripts/test_merge_agents_md.sh
+
+      - name: memory-privacy defences tests
+        run: bash agents/scripts/test_memory_privacy.sh
+
+      - name: bg-regression auto-detection tests
+        run: bash agents/scripts/test_detect_regression.sh
+
+      - name: smoke_test driver tests
+        run: bash agents/scripts/test_smoke_test.sh
+
+      - name: pack-health checker tests
+        run: bash agents/scripts/test_check_pack_health.sh
+
+      - name: real-regression runner tests
+        run: bash agents/scripts/test_run_regression.sh
+
+      - name: agent-freshness scanner tests
+        run: bash agents/scripts/test_freshness.sh
+
+      - name: local-telemetry + usage report tests
+        run: bash agents/scripts/test_telemetry.sh
+
+      - name: telemetry-webhook forwarder tests
+        run: bash agents/scripts/test_telemetry_webhook.sh
+
+      - name: python-version guard tests
+        run: bash agents/scripts/test_py_guard.sh
+
+      - name: guards in sync with snippet
+        run: python3 agents/scripts/refresh_py_guard.py --check
+
+      - name: supply-chain integrity tests
+        run: bash agents/scripts/test_supply_chain.sh
+
+      - name: MANIFEST.sha256 is up to date
+        run: python3 agents/scripts/build_manifest.py --check
+
+      - name: scan pack catalog for prompt-injection
+        run: python3 agents/scripts/scan_agent_safety.py
+
+      - name: cursor-rules conflict + bootstrap tests
+        run: bash agents/scripts/test_rules_conflicts.sh
+
+      - name: Migrator is idempotent
+        run: |
+          python3 agents/scripts/migrate_schema.py > run1.txt
+          python3 agents/scripts/migrate_schema.py > run2.txt
+          tail -n1 run2.txt
+          grep -q "Updated 0 files" run2.txt
+          git diff --exit-code
+
+      - name: Enforcement hook tests
+        run: bash hooks/tests/run-hook-tests.sh
+
+      - name: Memory schema + CLI tests
+        run: |
+          python3 memory/validate.py --path memory --strict
+          bash memory/tests/run-memory-tests.sh

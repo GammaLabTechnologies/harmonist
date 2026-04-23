@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a new capability or behaviour change.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature. For non-trivial
+        ideas, please open this issue **before** writing code so we can
+        align on approach (see `CONTRIBUTING.md`).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user pain does this solve? What doesn't work today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the change at the level of what a user would see.
+        If you have a specific design in mind (new script, new agent
+        category, new hook phase), describe it here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you think about, and why are they worse?
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Breaking-change risk
+      options:
+        - None — purely additive
+        - Low — changes behaviour only when opted in
+        - Medium — changes defaults; older projects may see different output
+        - High — requires migrator / schema version bump
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, links to relevant code, real-world examples.

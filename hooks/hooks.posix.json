@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "_comment": "POSIX-only variant pointing at the .sh scripts. The pack defaults to the cross-platform Python runner (hooks.json); use this copy only if you explicitly need the bash path (e.g. running hook tests in CI against the shell implementation).",
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/scripts/seed-session.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/scripts/record-write.sh"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": ".cursor/hooks/scripts/record-subagent-start.sh"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": ".cursor/hooks/scripts/record-subagent-stop.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/scripts/gate-stop.sh",
+        "loop_limit": 3
+      }
+    ]
+  }
+}

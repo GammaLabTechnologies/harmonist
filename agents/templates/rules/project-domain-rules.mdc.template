@@ -1,0 +1,65 @@
+---
+description: Project-specific domain rules. Violations cause real bugs.
+alwaysApply: true
+---
+
+<!-- project-owned: fill with 5-10 rules specific to THIS project. -->
+<!-- Pack-owned protocol-enforcement.mdc OUTRANKS this file for      -->
+<!-- enforcement directives (agent delegation, hooks, memory).       -->
+<!-- See protocol-enforcement.mdc "Precedence" section.              -->
+
+# <Project> Domain Rules
+
+> Generate 5–10 concrete rules specific to THIS project's domain.
+> Not generic engineering advice — rules where violation == real bug,
+> security issue, or data corruption.
+
+## Examples by domain (pick the ones that apply, delete the rest)
+
+### Fintech / payments
+- Every monetary value is stored as `Decimal` / integer minor units,
+  never `float`. Mixing types is a critical bug.
+- Idempotency keys are REQUIRED on every mutation endpoint that
+  touches balance. Missing key = P0.
+- Every state transition must go through the audit log; silent DB
+  writes are forbidden.
+
+### Healthcare / HIPAA
+- PHI never appears in logs, error messages, or analytics. Use
+  `redact_phi()` before any write that isn't the primary record.
+- Every access to patient data must emit an audit event with
+  `actor_id`, `purpose`, `record_id`.
+
+### Blockchain / DeFi
+- No private key ever lives in application memory after the
+  signing call returns.
+- All external contract calls assume adversarial return values; no
+  implicit trust of token balances.
+
+### AI / ML
+- Model versions are pinned in config, never floating. A deploy that
+  bumps a model without a version bump is a P0.
+- Inference latency budget: <Xms P95. Breaking this is a release
+  blocker.
+
+### Gamedev
+- Per-frame allocations in the hot path are forbidden; they cause
+  GC hitches on low-end hardware.
+- Asset-import pipeline is deterministic. Non-deterministic bakes
+  break the cert pipeline.
+
+## How to write a good rule
+
+- Phrase it as a concrete invariant, not advice.
+  - Good:  "Every `INSERT INTO payments` must be inside a
+    transaction with FOR UPDATE lock on the account row."
+  - Bad:   "Be careful with concurrency."
+- State the failure mode.  "Without this, two concurrent topups
+  double-credit the account."
+- Reference a file or module if the rule is localized.
+
+## Conflict with other rules?
+
+If this rule contradicts `protocol-enforcement.mdc`, protocol wins.
+If it contradicts `AGENTS.md` Invariants, `AGENTS.md` wins. See
+`protocol-enforcement.mdc` "Precedence" section.

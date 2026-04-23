@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a defect in Harmonist — scripts, hooks, memory, integration, or an agent file.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more reproducible
+        this is, the faster we can fix it.
+
+        **Security bugs:** do not open a public issue. Follow
+        [`SECURITY.md`](../../SECURITY.md) and open a private advisory
+        instead.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Agent file (body / frontmatter / schema)
+        - Integration prompt / integrate.py / upgrade.py
+        - install_extras.py / specialist selection
+        - Enforcement hooks (sessionStart / afterFileEdit / stop / subagent)
+        - Memory CLI / validator / schema
+        - Health / lint / manifest / supply-chain scripts
+        - Documentation (README / GUIDE / SCHEMA / STYLE)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Pack version
+      description: Contents of `VERSION` or `.cursor/pack-version.json`.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS + Python version + Cursor version (if relevant).
+      placeholder: "macOS 14.5, Python 3.12.3, Cursor 0.42.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong
+      placeholder: A clear description of the unexpected behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps that trigger the issue on a fresh clone.
+      placeholder: |
+        1. Clone the repo
+        2. Run `python3 agents/scripts/...`
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / test output
+      render: shell
+    validations:
+      required: false

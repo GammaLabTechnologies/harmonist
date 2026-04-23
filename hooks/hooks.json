@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "_comment": "Cross-platform hooks. The Python runner works on macOS, Linux, WSL, and Windows. The POSIX .sh scripts under scripts/ are kept for reference and tests -- switch the commands back to them only if you have a reason to bypass the Python path.",
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py sessionStart"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py afterFileEdit"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStart"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStop"
+      }
+    ],
+    "stop": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py stop",
+        "loop_limit": 3
+      }
+    ]
+  }
+}

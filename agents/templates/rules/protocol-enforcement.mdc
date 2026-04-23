@@ -1,0 +1,55 @@
+---
+description: MANDATORY. Follow AGENTS.md protocol for every task. No exceptions.
+alwaysApply: true
+---
+
+<!-- pack-owned: protocol-enforcement v1 (harmonist) -->
+<!-- Do not edit below this line unless you know what you're doing.   -->
+<!-- Future `upgrade.py --apply` runs may refresh this block.         -->
+
+# Protocol Enforcement
+
+## Precedence (when rules conflict)
+
+If two rules give conflicting guidance, resolve in this order:
+
+1. **Project `AGENTS.md`** (closest to codebase reality) — wins for
+   architecture, invariants, stack, module boundaries.
+2. **This rule** (`protocol-enforcement.mdc`) — wins for ENFORCEMENT:
+   which agents must be invoked, which hooks must pass, which memory
+   files must be updated. Protocol never negotiates.
+3. **`project-domain-rules.mdc`** — wins for domain specifics (e.g.
+   financial invariants, game-dev performance budgets). Never
+   overrides enforcement.
+4. **Any other `.cursor/rules/*.mdc`** — wins for stylistic / taste
+   content (naming, formatting, commenting). Never overrides 1–3.
+
+When you follow 2 over 4, say so explicitly in your response.
+
+## Enforcement (non-negotiable)
+
+- Your FIRST action must be: read `.cursor/memory/session-handoff.md`.
+- Consult `harmonist/agents/index.json` to pick agents by tag.
+  Never hard-code agent names; never invent slugs.
+- NEVER edit code without delegating to the correct subagent. If you
+  edit a file directly, the stop hook will block your turn until a
+  reviewer ran.
+- NEVER skip `qa-verifier` — run it before claiming done.
+- NEVER skip `security-reviewer` when the protocol requires it
+  (auth, secrets, payments, user input, crypto).
+- When delegating via Task, the FIRST line of the subagent prompt MUST
+  be `AGENT: <slug>` (e.g. `AGENT: qa-verifier`). Hooks rely on this
+  marker to credit the reviewer.
+- If you violated the protocol — STOP, tell the user, redo correctly.
+  Do not self-justify.
+- Respond to the user in their preferred language.
+
+## Escape hatch
+
+For pure Q&A / documentation / planning with zero file writes, the
+enforcement gate skips itself automatically. You don't need to cite
+this rule — just answer.
+
+For edge cases where the protocol truly doesn't apply (e.g. fixing a
+typo in a comment), add `PROTOCOL-SKIP: <one-line reason>` as the
+last line of your response. This is audited in telemetry.

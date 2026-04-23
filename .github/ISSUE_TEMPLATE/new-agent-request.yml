@@ -1,0 +1,87 @@
+name: New agent request
+description: Propose a new specialist agent for the catalogue.
+labels: ["enhancement", "new-agent"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to suggest a new agent. Before filing, check
+        `agents/index.json` to confirm nothing equivalent already exists.
+
+  - type: input
+    id: slug
+    attributes:
+      label: Proposed slug (kebab-case, unique)
+      placeholder: "e.g. engineering-payments-engineer"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Must be one of the existing categories (see agents/SCHEMA.md).
+      options:
+        - orchestration
+        - review
+        - engineering
+        - design
+        - testing
+        - product
+        - project-management
+        - marketing
+        - paid-media
+        - sales
+        - finance
+        - support
+        - academic
+        - game-development
+        - spatial-computing
+        - specialized
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      options:
+        - persona (free-form specialist)
+        - strict (orchestration-bound, structured output)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: One-sentence description
+      description: What the agent does and when to invoke it. Used for routing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: 2–3 real-world use cases
+      description: Concrete scenarios where the orchestrator should dispatch this agent.
+    validations:
+      required: true
+
+  - type: textarea
+    id: overlap
+    attributes:
+      label: Overlap with existing agents
+      description: |
+        List nearby agents from `agents/index.json`. Explain where this
+        one starts and they end. This becomes the `disambiguation` field.
+    validations:
+      required: true
+
+  - type: input
+    id: tags
+    attributes:
+      label: Proposed tags
+      description: 3–8 lowercase-kebab tags from `agents/tags.json` (or propose new ones).
+      placeholder: "backend, payments, fintech, security"
+    validations:
+      required: true
