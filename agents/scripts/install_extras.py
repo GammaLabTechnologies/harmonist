@@ -371,9 +371,25 @@ def _install_one(
 
     # sha-verify source against MANIFEST (supply-chain guard).
     rel = str(src.resolve().relative_to(pack_root.resolve())).replace("\\", "/")
+    if not manifest:
+        report.operations.append(InstallOp(
+            slug=slug, source=src, target=target,
+            action="refused",
+            reason=("MANIFEST.sha256 absent -- refusing to install unverified "
+                    "pack source. Regenerate with build_manifest.py."),
+        ))
+        return
     expected = manifest.get(rel)
     actual = _sha256_of(src)
-    if expected is not None and expected != actual:
+    if expected is None:
+        report.operations.append(InstallOp(
+            slug=slug, source=src, target=target,
+            action="refused",
+            reason=(f"{rel}: not in MANIFEST.sha256 -- refusing to install "
+                    f"unverified pack source. Regenerate with build_manifest.py."),
+        ))
+        return
+    if expected != actual:
         report.operations.append(InstallOp(
             slug=slug, source=src, target=target,
             action="refused",
@@ -381,11 +397,6 @@ def _install_one(
                     f"-- possible supply-chain tampering"),
         ))
         return
-    if expected is None:
-        report.warnings.append(
-            f"{slug}: source not in MANIFEST.sha256 "
-            f"(regenerate with build_manifest.py)"
-        )
 
     if dry_run:
         report.operations.append(InstallOp(

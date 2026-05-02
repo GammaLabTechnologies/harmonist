@@ -230,17 +230,57 @@ _DEFAULT_EXCLUDE_DIR_NAMES = {
 }
 
 
+# Pack-owned files that ship inside an otherwise-excluded directory and
+# DO end up loaded into the IDE / LLM context after `upgrade.py --apply`.
+# These must be scanned even when their parent directory is in
+# `_DEFAULT_EXCLUDE_DIR_NAMES`. Each entry is a relative path from a
+# scan target's root.
+_FORCE_INCLUDE_RELS: set[str] = {
+    "templates/rules/protocol-enforcement.mdc",
+    # `project-domain-rules.mdc.template` is a starter, not a hard-applied
+    # rule, but ships pack-owned and is reachable via integration paths.
+    "templates/rules/project-domain-rules.mdc.template",
+}
+
+# Suffixes considered "agent text" and therefore in scope for the scanner.
+# `.mdc` is the Cursor rules format -- a file that loads into every IDE
+# session via `alwaysApply: true`. Skipping it leaves a structural blind
+# spot for the only mandatory rule the pack ships.
+_AGENT_SUFFIXES: tuple[str, ...] = (".md", ".mdc", ".mdc.template")
+
+
+def _has_agent_suffix(p: Path) -> bool:
+    name = p.name
+    return any(name.endswith(s) for s in _AGENT_SUFFIXES)
+
+
 def _iter_agent_files(targets: list[Path], extra_exclude: set[str] | None = None) -> list[Path]:
     files: list[Path] = []
+    seen: set[Path] = set()
     excl = set(_DEFAULT_EXCLUDE_DIR_NAMES) | (extra_exclude or set())
     for t in targets:
-        if t.is_file() and t.suffix == ".md":
-            files.append(t)
-        elif t.is_dir():
-            for p in sorted(t.rglob("*.md")):
-                if any(seg in excl for seg in p.relative_to(t).parts):
+        if t.is_file() and _has_agent_suffix(t):
+            if t not in seen:
+                seen.add(t)
+                files.append(t)
+            continue
+        if not t.is_dir():
+            continue
+        for pattern in ("*.md", "*.mdc", "*.mdc.template"):
+            for p in t.rglob(pattern):
+                if p in seen:
                     continue
+                rel = p.relative_to(t)
+                rel_posix = rel.as_posix()
+                if rel_posix in _FORCE_INCLUDE_RELS:
+                    seen.add(p)
+                    files.append(p)
+                    continue
+                if any(seg in excl for seg in rel.parts):
+                    continue
+                seen.add(p)
                 files.append(p)
+    files.sort()
     return files
 
 

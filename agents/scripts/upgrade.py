@@ -326,14 +326,25 @@ def _verify_source_integrity(op: "UpgradeOp", pack_root: Path,
                              manifest: dict[str, str]) -> str:
     """Return empty string if OK, a non-empty reason otherwise."""
     if not manifest:
-        return ""  # no manifest -> best-effort; caller logs a warning once
+        # Caller is responsible for refusing to apply when the manifest is
+        # missing entirely. We flag every op so apply_plan never silently
+        # copies unverified files.
+        try:
+            rel = op.source.resolve().relative_to(pack_root.resolve()).as_posix()
+        except ValueError:
+            rel = str(op.source)
+        return (f"{rel}: MANIFEST.sha256 absent -- refusing to install "
+                f"unverified pack-owned file")
     try:
         rel = op.source.resolve().relative_to(pack_root.resolve()).as_posix()
     except ValueError:
-        return ""  # source outside pack root (shouldn't happen)
+        return (f"{op.source}: pack-owned source resolved outside pack root -- "
+                f"refusing to install")
     expected = manifest.get(rel)
     if expected is None:
-        return ""  # source not in manifest -> not a tampering signal
+        return (f"{rel}: not in MANIFEST.sha256 -- refusing to install "
+                f"unverified pack-owned file. Regenerate the manifest with "
+                f"agents/scripts/build_manifest.py.")
     actual = _sha256_of(op.source)
     if actual != expected:
         return (f"{rel}: manifest expected {expected[:12]}..., "
@@ -442,22 +453,26 @@ def apply_plan(report: UpgradeReport, dry_run: bool,
                pack_root: Path | None = None,
                project_root: Path | None = None,
                snapshot: bool = True) -> None:
-    """Copy files, guarded by MANIFEST.sha256. Any source whose sha
-    doesn't match the manifest is refused (appended to report.errors)
-    and NOT copied. If MANIFEST is missing entirely we fall back to
-    best-effort copy and add a single warning."""
+    """Copy files, guarded by MANIFEST.sha256. Fail-closed: every
+    pack-owned source must match a sha entry in MANIFEST.sha256, or it
+    is refused and not copied. If MANIFEST.sha256 is missing entirely,
+    nothing is copied -- the operator must regenerate it via
+    build_manifest.py before retrying."""
     manifest: dict[str, str] = {}
+    manifest_missing = False
     if pack_root is not None:
         manifest = _load_manifest(pack_root)
         if not manifest:
+            manifest_missing = True
             report.errors.append(
-                "MANIFEST.sha256 not found in pack -- "
-                "cannot verify source integrity; proceeding without check. "
+                "MANIFEST.sha256 not found in pack -- REFUSING to apply. "
                 "Regenerate with: python3 agents/scripts/build_manifest.py",
             )
 
     # Pre-apply snapshot so --rollback can undo this run.
-    if not dry_run and snapshot and project_root is not None:
+    # Skip when the manifest is missing -- we are not going to apply
+    # anything in that case, so a snapshot would be pure noise.
+    if not dry_run and snapshot and project_root is not None and not manifest_missing:
         try:
             tarball = _take_snapshot(report, project_root)
             if tarball is not None:
@@ -471,7 +486,7 @@ def apply_plan(report: UpgradeReport, dry_run: bool,
             continue
         if dry_run:
             continue
-        if pack_root is not None and manifest:
+        if pack_root is not None:
             problem = _verify_source_integrity(op, pack_root, manifest)
             if problem:
                 report.errors.append(f"REFUSED: {problem}")
@@ -540,12 +555,41 @@ def rollback(project_root: Path, which: str | None = None) -> "UpgradeReport":
         except Exception:
             creations = []
 
+    proj_resolved = project_root.resolve()
+
+    def _safe_join(base: Path, name: str) -> Path | None:
+        # Refuse absolute paths and any name that escapes `base` after
+        # resolution. Also refuse symlinks at the destination so a
+        # poisoned snapshot can't redirect a write through `~/foo`.
+        if not name or name.startswith("/") or "\x00" in name:
+            return None
+        candidate = (base / name)
+        try:
+            resolved = candidate.resolve()
+        except Exception:
+            return None
+        try:
+            resolved.relative_to(base)
+        except ValueError:
+            return None
+        if candidate.is_symlink():
+            return None
+        return resolved
+
     restored: list[str] = []
     with tarfile.open(target_tar, "r:gz") as tar:
         for member in tar.getmembers():
             if not member.isfile():
                 continue
-            out = project_root / member.name
+            if member.issym() or member.islnk():
+                report.errors.append(
+                    f"refused symlink/hardlink in snapshot: {member.name}")
+                continue
+            out = _safe_join(proj_resolved, member.name)
+            if out is None:
+                report.errors.append(
+                    f"refused unsafe path in snapshot: {member.name}")
+                continue
             out.parent.mkdir(parents=True, exist_ok=True)
             try:
                 extracted = tar.extractfile(member)
@@ -559,8 +603,12 @@ def rollback(project_root: Path, which: str | None = None) -> "UpgradeReport":
     # Delete files that the apply CREATED (recorded at snapshot time).
     removed: list[str] = []
     for rel in creations:
-        p = project_root / rel
-        if p.exists() and p.is_file():
+        p = _safe_join(proj_resolved, rel)
+        if p is None:
+            report.errors.append(
+                f"refused unsafe creation entry: {rel}")
+            continue
+        if p.exists() and p.is_file() and not p.is_symlink():
             try:
                 p.unlink()
                 removed.append(rel)
