@@ -175,6 +175,10 @@ class Finding:
 def _read_mdc(path: Path) -> tuple[str, str]:
     """Return (frontmatter_text, body_text)."""
     text = path.read_text(encoding="utf-8", errors="replace")
+    # Normalize CRLF/CR so the `\A---\n` frontmatter match works on Windows
+    # checkouts (otherwise the scanner silently sees no frontmatter and skips
+    # every rule file).
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     m = FRONTMATTER_RE.match(text)
     if not m:
         return ("", text)

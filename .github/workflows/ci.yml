@@ -102,7 +102,56 @@ jobs:
       - name: Enforcement hook tests
         run: bash hooks/tests/run-hook-tests.sh
 
+      - name: Git pre-commit guard tests
+        run: bash agents/scripts/test_git_hooks.sh
+
       - name: Memory schema + CLI tests
         run: |
           python3 memory/validate.py --path memory --strict
           bash memory/tests/run-memory-tests.sh
+
+      - name: Repo-map (zero-dep code index) tests
+        run: bash agents/scripts/test_repomap.sh
+
+      - name: Hardening checklist validator tests
+        run: bash agents/scripts/test_checklist.sh
+
+      - name: onboard.py tests
+        run: bash agents/scripts/test_onboard.sh
+
+      - name: install_extras.py (on-demand agent install) tests
+        run: bash agents/scripts/test_install_extras.sh
+
+      - name: integrate + deintegrate lifecycle tests
+        run: bash agents/scripts/test_integrate_deintegrate.sh
+
+      - name: Cross-platform install-path regression (stdlib only)
+        run: python3 agents/scripts/test_cross_platform.py -v
+
+  windows:
+    name: Native Windows (no bash, Python hook runner)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The whole point of this job: prove the install path works on native
+      # Windows WITHOUT bash/WSL, using only the pure-Python entry points and
+      # the cross-platform hook runner. .gitattributes pins eol=lf so the
+      # sha256 MANIFEST still verifies after a Windows checkout.
+      - name: Pack health (Windows)
+        run: python agents/scripts/check_pack_health.py
+
+      - name: agents/index.json is up to date (Windows)
+        run: python agents/scripts/build_index.py --check
+
+      - name: MANIFEST.sha256 verifies after Windows checkout
+        run: python agents/scripts/build_manifest.py --check
+
+      - name: convert.py runs on Windows
+        run: python agents/scripts/convert.py --tool cursor --out win-int
+
+      - name: Cross-platform install-path regression (convert + install + render + e2e smoke)
+        run: python agents/scripts/test_cross_platform.py -v

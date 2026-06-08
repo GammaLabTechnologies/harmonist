@@ -114,6 +114,13 @@
 
     "threat-modeling":    {"layer": "skill", "synonyms": ["threat model", "attack surface"]},
     "threat-detection":   {"layer": "skill", "synonyms": ["threat detection", "siem", "threat hunting", "att&ck"]},
+    "vulnerability-assessment":{"layer": "skill", "synonyms": ["vulnerability assessment", "vuln assessment", "vulnerability scanning"]},
+    "data-protection":    {"layer": "skill", "synonyms": ["data protection"]},
+    "penetration-testing":{"layer": "skill", "synonyms": ["penetration testing", "penetration test", "pentest"]},
+    "reconnaissance":     {"layer": "skill", "synonyms": ["reconnaissance"]},
+    "exploit-development":{"layer": "skill", "synonyms": ["exploit development"]},
+    "post-exploitation":  {"layer": "skill", "synonyms": ["post-exploitation"]},
+    "red-team":           {"layer": "skill", "synonyms": ["red team", "red-team"]},
     "smart-contract-audit":{"layer": "skill", "synonyms": ["blockchain security auditor", "smart contract audit"]},
     "compliance-audit":   {"layer": "skill", "synonyms": ["compliance auditor", "soc 2", "iso 27001"]},
     "incident-response":  {"layer": "skill", "synonyms": ["incident response commander", "on-call", "post-mortem"]},

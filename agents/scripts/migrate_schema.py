@@ -126,17 +126,31 @@ NON_AGENT_DIRS = {"scripts", "integrations", "templates", ".git"}
 # Default protocol by category
 STRICT_CATEGORIES = {"orchestration", "review"}
 
-# Model tiers. The three values are the only legal entries in an agent's
-# `model:` frontmatter field.
-#   fast       -- cheap / small-context; used for mechanical tasks where
-#                 depth is wasted (scout, regression runner, short-form
-#                 marketing copy, generator prompts).
-#   inherit    -- use whatever the host session is using. Safe default for
-#                 write agents whose task size varies wildly.
-#   reasoning  -- expensive / deep-thinking tier. Used when getting it
-#                 wrong is costly: security audits, architecture design,
-#                 review gates, compliance verdicts.
-MODEL_TIERS = {"fast", "inherit", "reasoning"}
+# Model selection.
+#
+# The `model:` field is a CONCRETE Cursor model slug that the dispatched
+# subagent runs on. By default every agent is pinned to the strongest model
+# (DEFAULT_MODEL) so subagents don't silently fall back to the host default
+# ("Composer"). A future contributor can pin a specific agent to a different
+# concrete slug via FIXED_MODELS or by hand-editing the field; the migrator
+# preserves any explicit concrete model and upgrades the legacy tier words
+# (`fast` / `inherit` / `reasoning`) to DEFAULT_MODEL.
+#
+# NOTE: "Max Mode" and the 1M-token context window are a GLOBAL Cursor toggle,
+# not a model identifier. Enable Max Mode in Cursor's settings to give these
+# agents the 1M-context Opus; the slug below selects the model family/version.
+DEFAULT_MODEL = "claude-opus-4-8"  # Claude Opus 4.8 -- strongest available
+
+# Concrete Cursor model slugs the pack ships. Extend this set if you start
+# pinning agents to other real models (e.g. a cheaper fast variant).
+CONCRETE_MODELS = {"claude-opus-4-8", "claude-opus-4-8-fast"}
+
+# Legacy semantic tiers. Still ACCEPTED (so older files / user projects don't
+# fail validation) but the migrator rewrites them to DEFAULT_MODEL.
+LEGACY_TIERS = {"fast", "inherit", "reasoning"}
+
+# Everything the linter accepts in an agent's `model:` field.
+MODEL_TIERS = CONCRETE_MODELS | LEGACY_TIERS
 
 # ---------------------------------------------------------------------------
 # Domain scoping (used to filter irrelevant agents per project)
@@ -212,90 +226,14 @@ FIXED_DOMAINS: dict[str, list[str]] = {
     "corporate-training-designer":                         ["all"],
 }
 
-# Category-level model defaults. Applied when the agent has no explicit
-# override in FIXED_MODELS.
-PER_CATEGORY_MODEL = {
-    "orchestration":     "fast",
-    "review":            "reasoning",
-    "engineering":       "inherit",
-    "design":            "inherit",
-    "testing":           "inherit",
-    "product":           "inherit",
-    "project-management":"inherit",
-    "marketing":         "fast",
-    "paid-media":        "inherit",
-    "sales":             "inherit",
-    "finance":           "reasoning",   # analysis + numbers, worth the depth
-    "support":           "inherit",
-    "academic":          "reasoning",
-    "game-development":  "inherit",
-    "spatial-computing": "inherit",
-    "specialized":       "inherit",
-}
-
-# Per-agent overrides. Reserved for the protocol-critical roles (strict
-# agents, deep audits, pure content generators) where category-level
-# defaults would get it wrong.
-FIXED_MODELS: dict[str, str] = {
-    # Orchestration
-    "repo-scout":                                          "fast",
-    # Review -- all reasoning EXCEPT the background command runner.
-    "security-reviewer":                                   "reasoning",
-    "code-quality-auditor":                                "reasoning",
-    "qa-verifier":                                         "reasoning",
-    "sre-observability":                                   "reasoning",
-    "bg-regression-runner":                                "fast",
-    # Engineering personas that do deep design / audit work.
-    "engineering-security-engineer":                       "reasoning",
-    "engineering-threat-detection-engineer":               "reasoning",
-    "engineering-backend-architect":                       "reasoning",
-    "engineering-software-architect":                      "reasoning",
-    "engineering-database-optimizer":                      "reasoning",
-    "engineering-autonomous-optimization-architect":       "reasoning",
-    "engineering-solidity-smart-contract-engineer":        "reasoning",
-    "engineering-ai-engineer":                             "reasoning",
-    "engineering-ai-data-remediation-engineer":            "reasoning",
-    "engineering-incident-response-commander":             "reasoning",
-    # Engineering personas that are mostly mechanical / fast-iteration.
-    "engineering-rapid-prototyper":                        "fast",
-    "engineering-technical-writer":                        "fast",
-    # Testing
-    "testing-reality-checker":                             "reasoning",
-    "testing-evidence-collector":                          "fast",
-    "testing-workflow-optimizer":                          "inherit",
-    # Specialized deep-audit roles
-    "blockchain-security-auditor":                         "reasoning",
-    "compliance-auditor":                                  "reasoning",
-    "specialized-workflow-architect":                      "reasoning",
-    "specialized-salesforce-architect":                    "reasoning",
-    "agentic-identity-trust":                              "reasoning",
-    "specialized-model-qa":                                "reasoning",
-    "specialized-mcp-builder":                             "reasoning",
-    "zk-steward":                                          "reasoning",
-    # Specialized / mechanical
-    "specialized-document-generator":                      "fast",
-    "report-distribution-agent":                           "fast",
-    "sales-data-extraction-agent":                         "fast",
-    "data-consolidation-agent":                            "fast",
-    "accounts-payable-agent":                              "reasoning",
-    # Design prompt generators -- short, stateless, cheap
-    "design-image-prompt-engineer":                        "fast",
-    # Marketing: short-form copy is fast; strategic / analytic work is deeper.
-    "marketing-growth-hacker":                             "reasoning",
-    "marketing-ai-citation-strategist":                    "reasoning",
-    "marketing-agentic-search-optimizer":                  "reasoning",
-    "marketing-china-market-localization-strategist":      "reasoning",
-    "marketing-book-co-author":                            "reasoning",
-    # Product -- discovery / decisions are reasoning; sprint ops are not.
-    "product-manager":                                     "reasoning",
-    "product-trend-researcher":                            "reasoning",
-    "product-sprint-prioritizer":                          "inherit",
-    "product-feedback-synthesizer":                        "inherit",
-    "product-behavioral-nudge-engine":                     "reasoning",
-    # Sales analytical roles
-    "sales-pipeline-analyst":                              "reasoning",
-    "sales-deal-strategist":                               "reasoning",
-}
+# Per-agent model overrides. Empty by default: every agent runs on
+# DEFAULT_MODEL (the strongest model) for best results. Add an entry here
+# ONLY if a specific agent is genuinely better on a different concrete slug
+# (e.g. a cheaper fast variant for a high-volume mechanical agent). Values
+# must be members of CONCRETE_MODELS.
+#
+#   "some-agent-slug": "claude-opus-4-8-fast",
+FIXED_MODELS: dict[str, str] = {}
 
 # Full set of agent categories — used to filter cross-category "leaks" in tags.
 # A tag that matches a category name is only allowed if it IS the agent's own
@@ -482,6 +420,15 @@ FIXED_TAGS: dict[str, list[str]] = {
     "qa-verifier":           ["review", "qa", "evidence-collection", "regression", "reality-check"],
     "sre-observability":     ["review", "sre", "observability", "reliability", "performance", "scaling", "database-design", "query-optimization", "caching"],
     "bg-regression-runner":  ["review", "regression", "qa"],
+    # specialized — authorized-security crew (tags pinned so the broad
+    # security vocabulary can't auto-pollute them or other agents).
+    "security-recon-mapper":         ["reconnaissance", "penetration-testing", "security", "threat-modeling"],
+    "security-web-app-pentester":    ["penetration-testing", "web", "owasp", "security", "vulnerability-assessment"],
+    "security-vulnerability-triage": ["vulnerability-assessment", "security", "audit"],
+    "security-exploit-developer":    ["exploit-development", "penetration-testing", "security", "vulnerability-assessment"],
+    "security-red-team-operator":    ["red-team", "post-exploitation", "penetration-testing", "security"],
+    "security-pentest-report-writer":["technical-writing", "security", "vulnerability-assessment", "audit"],
+    "privacy-engineer":              ["privacy", "data-protection", "security", "compliance-audit"],
 }
 
 # Weights for automatic derivation (how strong is the signal?). Existing
@@ -683,26 +630,21 @@ def apply_defaults(fields: dict, category: str, filename_slug: str, body: str = 
     if "is_background" not in fields:
         fields["is_background"] = filename_slug == "bg-regression-runner"
 
-    # Model tier: strongest signal wins.
+    # Model: pin every agent to the strongest concrete model by default.
     #   1. FIXED_MODELS hard override for a specific slug.
-    #   2. Category default from PER_CATEGORY_MODEL.
-    #   3. Existing explicit value (only if it's legal).
-    #   4. 'inherit' fallback.
+    #   2. An explicit concrete model already in the file is preserved
+    #      (respects hand-curation). Legacy tier words and `inherit` are
+    #      upgraded to DEFAULT_MODEL.
+    #   3. DEFAULT_MODEL fallback.
     fixed = FIXED_MODELS.get(filename_slug)
     if fixed:
         fields["model"] = fixed
-    elif category in PER_CATEGORY_MODEL:
-        existing = fields.get("model")
-        # Preserve a pre-existing valid value if it differs from the default --
-        # respects hand-curation future contributors may do outside FIXED_MODELS.
-        if existing in MODEL_TIERS and existing != "inherit":
-            fields["model"] = existing
-        else:
-            fields["model"] = PER_CATEGORY_MODEL[category]
+    elif fields.get("model") in CONCRETE_MODELS:
+        fields["model"] = fields["model"]
     else:
-        fields.setdefault("model", "inherit")
+        fields["model"] = DEFAULT_MODEL
     if fields.get("model") not in MODEL_TIERS:
-        fields["model"] = "inherit"
+        fields["model"] = DEFAULT_MODEL
 
     existing_tags = fields.get("tags")
     if not isinstance(existing_tags, list):

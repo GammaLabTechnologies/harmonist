@@ -3,11 +3,11 @@
 ## What is this
 
 Portable AI orchestration system for Cursor IDE.
-Drop the folder into any project — get a 186-agent unified catalog with
+Drop the folder into any project — get a 193-agent unified catalog with
 tag-driven routing, persistent memory, and protocol-bound quality gates.
 
 **In numbers:**
-- **186 agents** in a single unified pool — browse via `agents/index.json`
+- **193 agents** in a single unified pool — browse via `agents/index.json`
 - **16 categories** — orchestration, review, engineering, design, testing,
   product, project-management, marketing, paid-media, sales, finance, support,
   academic, game-development, spatial-computing, specialized
@@ -15,8 +15,9 @@ tag-driven routing, persistent memory, and protocol-bound quality gates.
 - **3 memory files** — context persists between sessions
 - **11 IDE integrations** — Cursor, Claude Code, Copilot, Windsurf, Aider, Kimi,
   Qwen, OpenCode, OpenClaw, Gemini CLI, Antigravity
-- **0 runtime dependencies** — pure markdown + two small Python utilities for
-  linting and building the index
+- **0 runtime dependencies** — pure markdown + a Python **stdlib-only** toolchain
+  (lint, index, integrate/upgrade, hooks runtime, memory CLI, repo map); no pip,
+  npm, Docker, or external services
 
 ---
 
@@ -63,7 +64,7 @@ table the orchestrator consults.
 | Academic | 5 | Historian, Psychologist, Anthropologist, Narratologist |
 | Game development | 20 | Unity, Unreal Engine, Godot, Roblox, Blender |
 | Spatial computing | 6 | visionOS, WebXR, XR Immersive, Metal |
-| Specialized | 17 | Blockchain Security Auditor, MCP Builder, Salesforce, ZK |
+| Specialized | 24 | Blockchain Security Auditor, MCP Builder, Salesforce, ZK, authorized security testing, privacy engineering |
 
 ---
 
@@ -169,7 +170,7 @@ merges into `.cursor/pack-manifest.json`.
 - **Rollback on failure** — multi-step tasks that fail midway trigger LIFO
   rollback, not "keep going".
 - **Schema-validated** — `lint_agents.py` rejects malformed frontmatter on CI.
-- **Zero runtime deps** — pure markdown + two standalone Python scripts.
+- **Zero runtime deps** — pure markdown + a Python stdlib-only toolchain.
 - **Portability** — one folder, one prompt. Drop → integrate → work.
 
 ---
@@ -186,7 +187,7 @@ harmonist/
 ├── memory/                   ← memory templates
 ├── playbooks/                ← NEXUS phases, runbooks, coordination
 │
-└── agents/                   ← 186 agents in one pool
+└── agents/                   ← 193 agents in one pool
     ├── SCHEMA.md             ← frontmatter contract
     ├── index.json            ← generated routing table
     │
@@ -195,7 +196,7 @@ harmonist/
     ├── engineering/          ← persona (46)
     ├── marketing/            ← persona (30)
     ├── game-development/     ← persona (20)
-    ├── specialized/          ← persona (17)
+    ├── specialized/          ← persona (24)
     ├── …10 more categories
     │
     ├── templates/            ← blank starters

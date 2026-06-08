@@ -6,7 +6,7 @@ category: support
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [customer-support, ux-design, data-science, knowledge-management, observability, template, qa, performance]
 domains: [all]
 version: 1.0.0

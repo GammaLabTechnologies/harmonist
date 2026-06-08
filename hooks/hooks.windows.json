@@ -1,30 +1,35 @@
 {
   "version": 1,
-  "_comment": "Windows-native variant of hooks.json. Copy this file over hooks.json on Windows systems that do not have WSL / Git Bash. It invokes the pure-Python hook runner, which is bit-for-bit compatible with the POSIX .sh scripts. Requires python3 on PATH (Python 3.9+).",
+  "_comment": "Windows-native variant of hooks.json for the MANUAL install path. integrate.py / upgrade.py auto-render the right interpreter into .cursor/hooks.json, so you only need this file if you wire hooks up by hand. It uses the `py` launcher (shipped with the python.org installer and on PATH by default); if you have no `py` launcher, change `py -3` to `python`. The pure-Python runner is bit-for-bit compatible with the POSIX .sh scripts. Requires Python 3.9+.",
   "hooks": {
     "sessionStart": [
       {
-        "command": "python3 .cursor/hooks/scripts/hook_runner.py sessionStart"
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py sessionStart"
       }
     ],
     "afterFileEdit": [
       {
-        "command": "python3 .cursor/hooks/scripts/hook_runner.py afterFileEdit"
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py afterFileEdit"
       }
     ],
     "subagentStart": [
       {
-        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStart"
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py subagentStart"
       }
     ],
     "subagentStop": [
       {
-        "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStop"
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py subagentStop"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py beforeShellExecution"
       }
     ],
     "stop": [
       {
-        "command": "python3 .cursor/hooks/scripts/hook_runner.py stop",
+        "command": "py -3 .cursor/hooks/scripts/hook_runner.py stop",
         "loop_limit": 3
       }
     ]

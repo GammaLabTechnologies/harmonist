@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [coordination, studio-ops, observability, reporting, finops, performance]
 domains: [all]
 version: 1.0.0

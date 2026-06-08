@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [a11y, reality-check, web, accessibility-testing, evidence-collection, legal-compliance, regression, ui-design, ux-research, qa]
 domains: [all]
 version: 1.0.0

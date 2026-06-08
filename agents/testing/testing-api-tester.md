@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [api, performance, qa, api-testing, authz, performance-testing, security, auth, strategy, observability]
 domains: [all]
 distinguishes_from: [testing-performance-benchmarker, testing-test-results-analyzer, testing-tool-evaluator]

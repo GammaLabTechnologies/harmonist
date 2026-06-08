@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [growth, data-science, experiment-tracking, ux-design]
 domains: [all]
 version: 1.0.0

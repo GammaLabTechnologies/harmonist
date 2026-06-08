@@ -6,7 +6,7 @@ category: design
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [design, ai, prompt-design, architecture]
 domains: [all]
 version: 1.0.0

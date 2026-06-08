@@ -6,7 +6,7 @@ category: sales
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [account-expansion, strategy, reporting, next, growth, observability, infra]
 domains: [all]
 version: 1.0.0

@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [jira-workflow, git, version-control, strategy, regression, infra, security, auth, secrets, audit]
 domains: [all]
 version: 1.0.0

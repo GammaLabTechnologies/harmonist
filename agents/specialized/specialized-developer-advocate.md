@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [devrel, technical-writing, community-building, content-creation, api, observability, reporting, audit, product-management, infra]
 domains: [all]
 distinguishes_from: [corporate-training-designer, engineering-technical-writer, marketing-content-creator]

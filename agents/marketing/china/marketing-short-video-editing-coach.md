@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, technical-art, experiment-tracking, ai, bilibili, douyin, template, youtube, go, infra]
 domains: [china-market]
 version: 1.0.0

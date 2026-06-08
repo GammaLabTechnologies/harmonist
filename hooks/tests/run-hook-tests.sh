@@ -15,6 +15,7 @@ SCRIPTS="$HOOKS_DIR/scripts"
 STATE_DIR="$HOOKS_DIR/.state"
 STATE_FILE="$STATE_DIR/session.json"
 PACK_MEMORY="$(cd "$HOOKS_DIR/.." && pwd)/memory"
+REPOMAP="$(cd "$HOOKS_DIR/.." && pwd)/agents/scripts/repomap.py"
 
 # Per-run isolated memory directory — copy the real templates + CLI into a
 # tmp dir and point the hooks at it. Teardown on exit.
@@ -28,6 +29,9 @@ export AGENT_PACK_TELEMETRY_DIR="$TMP_MEMORY/telemetry"
 cleanup() {
   rm -rf "$TMP_MEMORY"
   rm -rf "$STATE_DIR"
+  # Tests that exercise config overrides write a transient config.json into
+  # the pack's hooks dir; make sure it never survives a run (even on abort).
+  rm -f "$HOOKS_DIR/config.json"
 }
 trap cleanup EXIT
 
@@ -532,6 +536,211 @@ else
   fail=$((fail + 1))
 fi
 rm -f "$STATE_DIR/incidents.json"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 19: concurrent-subagent cap (default max 3) ===\n"
+# .sh path: first 3 launches allowed, the 4th is denied.
+reset_state
+sa_out=""
+for i in 1 2 3; do
+  printf '%s' "{\"subagent_type\":\"generalPurpose\",\"prompt\":\"AGENT: a${i}\\nwork\"}" \
+    | bash "$SCRIPTS/record-subagent-start.sh" >/dev/null
+done
+sa_out="$(printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: a4\nwork"}' \
+  | bash "$SCRIPTS/record-subagent-start.sh")"
+if printf '%s' "$sa_out" | grep -q '"permission": *"deny"'; then
+  printf "  ok    .sh denies the 4th concurrent subagent\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  .sh did not deny 4th subagent: %s\n" "$sa_out"; fail=$((fail + 1)); fail_list+=("sh-cap-deny")
+fi
+# The 4th must NOT have been recorded (still 3 calls).
+n_calls="$(python3 -c 'import json;print(len(json.load(open("'"$STATE_FILE"'")).get("subagent_calls",[])))')"
+assert ".sh cap did not record the denied call" "3" "$n_calls"
+
+# runner path: same -- 4th launch denied.
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+for i in 1 2 3; do
+  printf '%s' "{\"subagent_type\":\"generalPurpose\",\"prompt\":\"AGENT: b${i}\\nwork\"}" \
+    | python3 "$SCRIPTS/hook_runner.py" subagentStart >/dev/null
+done
+run_out="$(printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: b4\nwork"}' \
+  | python3 "$SCRIPTS/hook_runner.py" subagentStart)"
+if printf '%s' "$run_out" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("permission")=="deny" else 1)'; then
+  printf "  ok    runner denies the 4th concurrent subagent\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  runner did not deny 4th subagent: %s\n" "$run_out"; fail=$((fail + 1)); fail_list+=("runner-cap-deny")
+fi
+# After a subagentStop frees a slot, the next launch is allowed again.
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" subagentStop >/dev/null
+allow_out="$(printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: b5\nwork"}' \
+  | python3 "$SCRIPTS/hook_runner.py" subagentStart)"
+if printf '%s' "$allow_out" | python3 -c 'import json,sys;d=json.load(sys.stdin);sys.exit(0 if d.get("permission")!="deny" else 1)'; then
+  printf "  ok    runner allows again after a subagent stops\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  runner still denied after a stop: %s\n" "$allow_out"; fail=$((fail + 1)); fail_list+=("runner-cap-recover")
+fi
+# Disabling the cap (max_concurrent_subagents=0) lets everything through.
+reset_state
+printf '{"max_concurrent_subagents":0}' > "$HOOKS_DIR/config.json"
+for i in 1 2 3 4 5; do
+  printf '%s' "{\"subagent_type\":\"generalPurpose\",\"prompt\":\"AGENT: c${i}\\nwork\"}" \
+    | bash "$SCRIPTS/record-subagent-start.sh" >/dev/null
+done
+n_uncapped="$(python3 -c 'import json;print(len(json.load(open("'"$STATE_FILE"'")).get("subagent_calls",[])))')"
+rm -f "$HOOKS_DIR/config.json"
+assert "cap=0 disables the limit (all 5 recorded)" "5" "$n_uncapped"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 20: impact-aware affected-tests gate ===\n"
+reset_state
+FIXA="$(mktemp -d)"
+mkdir -p "$FIXA/src" "$FIXA/tests"
+cat > "$FIXA/src/fee.py" <<'PYEOF'
+def calc_fee(a):
+    return a * 0.03
+PYEOF
+cat > "$FIXA/src/billing.py" <<'PYEOF'
+from src.fee import calc_fee
+def charge(x):
+    return calc_fee(x)
+PYEOF
+cat > "$FIXA/tests/test_billing.py" <<'PYEOF'
+from src.billing import charge
+def test_charge():
+    assert charge(100) == 3.0
+PYEOF
+python3 "$REPOMAP" build --project "$FIXA" >/dev/null
+export AGENT_PACK_REPOMAP_CLI="$REPOMAP"
+# Isolate the affected-tests gate: enable it, disable the others.
+echo '{"require_affected_tests": true, "require_qa_verifier": false, "require_any_reviewer": false, "require_session_handoff_update": false}' > "$HOOKS_DIR/config.json"
+(cd "$FIXA" && printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null)
+(cd "$FIXA" && printf '{"file_path":"src/billing.py"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null)
+gate_out="$(cd "$FIXA" && printf '{}' | python3 "$SCRIPTS/hook_runner.py" stop)"
+if printf '%s' "$gate_out" | grep -q "test_billing.py"; then
+  printf "  ok    affected-tests gate blocks and names the impacted test\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  affected-tests gate did not name impacted test: %s\n" "${gate_out:0:200}"; fail=$((fail + 1)); fail_list+=("affected-gate-block")
+fi
+# Gate OFF -> same edit is allowed (no other gates active).
+reset_state
+echo '{"require_affected_tests": false, "require_qa_verifier": false, "require_any_reviewer": false, "require_session_handoff_update": false}' > "$HOOKS_DIR/config.json"
+(cd "$FIXA" && printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null)
+(cd "$FIXA" && printf '{"file_path":"src/billing.py"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null)
+gate_off="$(cd "$FIXA" && printf '{}' | python3 "$SCRIPTS/hook_runner.py" stop)"
+if printf '%s' "$gate_off" | python3 -c 'import json,sys;d=json.load(sys.stdin);sys.exit(0 if "followup_message" not in d else 1)'; then
+  printf "  ok    gate off allows the same edit\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  gate off still blocked: %s\n" "${gate_off:0:200}"; fail=$((fail + 1)); fail_list+=("affected-gate-off")
+fi
+rm -f "$HOOKS_DIR/config.json"
+rm -rf "$FIXA"
+unset AGENT_PACK_REPOMAP_CLI
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 21: delegation-context gate (opt-in) ===\n"
+# Enable the gate; disable the concurrency cap so it can't interfere.
+reset_state
+echo '{"require_delegation_context": true, "min_delegation_chars": 80, "max_concurrent_subagents": 0}' > "$HOOKS_DIR/config.json"
+# Thin (marker-only-ish) delegation -> denied by the runner.
+thin_out="$(printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\ncheck"}' | python3 "$SCRIPTS/hook_runner.py" subagentStart)"
+if printf '%s' "$thin_out" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("permission")=="deny" else 1)'; then
+  printf "  ok    runner denies a thin delegation\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  runner allowed thin delegation: %s\n" "${thin_out:0:160}"; fail=$((fail + 1)); fail_list+=("deleg-thin")
+fi
+# Rich delegation with real handoff -> allowed.
+reset_state
+rich='{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\nPROJECT PRECEDENCE: payments module, no float for money.\nVerify the diff in src/api/auth.ts: new endpoints, edge cases, breaking-change risk, and that tests cover the error paths. Success = a done/blocked verdict with evidence."}'
+rich_out="$(printf '%s' "$rich" | python3 "$SCRIPTS/hook_runner.py" subagentStart)"
+if printf '%s' "$rich_out" | python3 -c 'import json,sys;d=json.load(sys.stdin);sys.exit(0 if d.get("permission")!="deny" else 1)'; then
+  printf "  ok    runner allows a delegation with full handoff\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  runner denied a rich delegation: %s\n" "${rich_out:0:160}"; fail=$((fail + 1)); fail_list+=("deleg-rich")
+fi
+# .sh path denies the thin delegation too (parity).
+reset_state
+sh_thin="$(printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\ncheck"}' | bash "$SCRIPTS/record-subagent-start.sh")"
+if printf '%s' "$sh_thin" | grep -q '"permission": *"deny"'; then
+  printf "  ok    .sh denies a thin delegation\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  .sh allowed thin delegation: %s\n" "${sh_thin:0:160}"; fail=$((fail + 1)); fail_list+=("deleg-thin-sh")
+fi
+rm -f "$HOOKS_DIR/config.json"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 22: HITL gate on dangerous shell commands ===\n"
+danger="$(printf '%s' '{"command":"rm -rf /"}' | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution)"
+if printf '%s' "$danger" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("permission")=="ask" else 1)'; then
+  printf "  ok    dangerous command -> ask\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  dangerous command not gated: %s\n" "${danger:0:160}"; fail=$((fail + 1)); fail_list+=("hitl-danger")
+fi
+safe="$(printf '%s' '{"command":"npm test"}' | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution)"
+if printf '%s' "$safe" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("permission")=="allow" else 1)'; then
+  printf "  ok    routine command -> allow\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  routine command gated: %s\n" "${safe:0:160}"; fail=$((fail + 1)); fail_list+=("hitl-safe")
+fi
+echo '{"hitl_enabled": false}' > "$HOOKS_DIR/config.json"
+off="$(printf '%s' '{"command":"rm -rf /"}' | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution)"
+if printf '%s' "$off" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("permission")=="allow" else 1)'; then
+  printf "  ok    hitl_enabled=false disables the gate\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  hitl off still gated: %s\n" "${off:0:160}"; fail=$((fail + 1)); fail_list+=("hitl-off")
+fi
+rm -f "$HOOKS_DIR/config.json"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 23: HITL gate catches hardened catastrophic forms ===\n"
+# The old single-dash pattern missed these; the hardened patterns must ask.
+for c in "rm -rf /usr" "rm --recursive --force /" "rm -rf --no-preserve-root /" "dd of=/dev/sda if=/dev/zero"; do
+  perm="$(printf '%s' "{\"command\":\"$c\"}" | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
+          | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
+  assert "HITL asks for: $c" "ask" "$perm"
+done
+# Routine recursive deletes / test commands must NOT be gated.
+for c in "rm -rf node_modules" "npm test" "rm notes.txt"; do
+  perm="$(printf '%s' "{\"command\":\"$c\"}" | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
+          | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
+  assert "HITL allows: $c" "allow" "$perm"
+done
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 24: PROTOCOL-SKIP is scoped to the final message (no fail-open) ===\n"
+# (a) A genuine skip in the agent's response is honoured.
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+printf '{"file_path":"src/x.py"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+skip_out="$(printf '%s' '{"response":"tiny tweak.\nPROTOCOL-SKIP: comment-only"}' | python3 "$SCRIPTS/hook_runner.py" stop)"
+if printf '%s' "$skip_out" | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin)=={} else 1)'; then
+  printf "  ok    genuine PROTOCOL-SKIP in response allows\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  genuine skip not honoured: %s\n" "${skip_out:0:120}"; fail=$((fail + 1)); fail_list+=("skip-honoured")
+fi
+# (b) The echoed seed/followup TEMPLATE in a context field must NOT skip.
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+printf '{"file_path":"src/x.py"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+echo_out="$(printf '%s' '{"additional_context":"include PROTOCOL-SKIP: <one-line reason> in your final message"}' | python3 "$SCRIPTS/hook_runner.py" stop)"
+if printf '%s' "$echo_out" | python3 -c 'import json,sys;sys.exit(0 if "followup_message" in json.load(sys.stdin) else 1)'; then
+  printf "  ok    echoed template does NOT fail the gate open\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  echoed template bypassed the gate: %s\n" "${echo_out:0:120}"; fail=$((fail + 1)); fail_list+=("skip-fail-open")
+fi
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 25: relative memory path is recorded (not skipped) ===\n"
+# .cursor/ is in skip_path_patterns; a relative handoff path must still be
+# tracked as a memory_update so the stop gate's handoff requirement is
+# satisfiable on the Python path.
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+printf '{"file_path":".cursor/memory/session-handoff.md"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+mem_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("memory_updates",[])))')"
+wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes",[])))')"
+assert "relative handoff recorded as memory_update" "1" "$mem_n"
+assert "relative handoff NOT counted as a code write" "0" "$wr_n"
 
 printf "\n=== summary ===\n  passed: %s\n  failed: %s\n" "$pass" "$fail"
 if (( fail > 0 )); then

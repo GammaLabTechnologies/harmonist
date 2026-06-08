@@ -6,7 +6,7 @@ category: sales
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [pipeline-analysis, sales-coaching, coaching, observability, deal-strategy, architecture, next, reporting]
 domains: [all]
 version: 1.0.0

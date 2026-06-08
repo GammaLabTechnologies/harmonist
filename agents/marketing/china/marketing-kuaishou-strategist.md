@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, kuaishou, livestream-commerce, community-building, content-creation, customer-support, douyin, strategy, wechat, infra]
 domains: [china-market]
 distinguishes_from: [marketing-douyin-strategist, marketing-livestream-commerce-coach, marketing-bilibili-content-strategist]

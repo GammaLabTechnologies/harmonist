@@ -6,7 +6,7 @@ category: design
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [design, ux-design, architecture, implementation, a11y, javascript, mobile, strategy, ai]
 domains: [all]
 distinguishes_from: [design-ui-designer, design-ux-researcher, design-whimsy-injector]

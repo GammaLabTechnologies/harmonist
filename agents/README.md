@@ -12,7 +12,7 @@ discoverable through the generated index.
 agents/
 ├── README.md           ← you are here
 ├── SCHEMA.md           ← frontmatter contract (Schema v2)
-├── index.json          ← generated routing table (186 agents)
+├── index.json          ← generated routing table (193 agents)
 │
 ├── orchestration/      strict, readonly   (2 agents)
 ├── review/             strict, readonly   (6 agents)
@@ -29,7 +29,7 @@ agents/
 ├── academic/           persona            (5)
 ├── game-development/   persona            (20)   ← grouped by engine in sub-folders
 ├── spatial-computing/  persona            (6)
-├── specialized/        persona            (17)
+├── specialized/        persona            (24)
 │
 ├── templates/          ← blank starters for writing new agents
 ├── integrations/       ← per-IDE adapters (Cursor, Claude Code, Copilot, …)
@@ -66,7 +66,7 @@ category: engineering
 protocol: persona                 # or 'strict'
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [engineering, security, threat-modeling, vulnerability-assessment, code-review, audit]
 
 # optional

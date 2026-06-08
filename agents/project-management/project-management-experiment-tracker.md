@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [experiment-tracking, data-science, tracking, knowledge-management, ml, ux-design, implementation, observability, observability-instrumentation, qa]
 domains: [all]
 version: 1.0.0

@@ -6,8 +6,8 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
-tags: [security, threat-detection, api, ml, observability, secrets, product-management]
+model: claude-opus-4-8
+tags: [security, threat-detection, api, ml, observability, secrets, product-management, red-team]
 domains: [all]
 distinguishes_from: [security-reviewer, engineering-security-engineer, engineering-incident-response-commander]
 disambiguation: SIEM rules, threat hunting, detection engineering (MITRE ATT&CK). Not a code reviewer — use security-reviewer for that; not an incident responder — use engineering-incident-response-commander.

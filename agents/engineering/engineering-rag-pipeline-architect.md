@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [rag, llm, vector-db, ai, architecture, data-engineering, observability, strategy, authz, llm-eval]
 domains: [all]
 distinguishes_from: [engineering-ai-engineer, engineering-data-engineer, engineering-llm-evaluation-harness]

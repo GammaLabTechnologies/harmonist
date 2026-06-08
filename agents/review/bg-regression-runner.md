@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: true
-model: fast
+model: claude-opus-4-8
 tags: [review, regression, qa]
 domains: [all]
 distinguishes_from: [qa-verifier, testing-reality-checker, testing-performance-benchmarker]
@@ -22,7 +22,11 @@ Run the narrowest meaningful validation suite first, then broader suites only if
 
 Process:
 1. Inspect which modules were recently changed (check git diff if available).
-2. Run module-specific tests for changed modules first.
+   When the repo map is present, compute the precise set of affected test
+   files instead of guessing:
+   `git diff --name-only HEAD | python3 .cursor/repomap/repomap.py affected --stdin --quiet`
+   and run those first — they are the tests the change can actually break.
+2. Run module-specific / affected tests for changed modules first.
 3. Then run full test suite.
 4. Then linting + type checking + build.
 5. Summarize signal, not raw log spam.

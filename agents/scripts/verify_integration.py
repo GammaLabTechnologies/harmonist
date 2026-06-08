@@ -36,7 +36,9 @@ if _asp_sys.version_info < (3, 9):
 # === PY-GUARD:END ===
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -366,7 +368,7 @@ def check_memory_validates(proj: Path) -> CheckResult:
         return CheckResult("memory-validates", "error", False,
                            "validate.py missing", "See 'memory-setup' fix.")
     rc = subprocess.run(
-        ["python3", str(p / "validate.py"), "--path", str(p), "--quiet"],
+        [sys.executable, str(p / "validate.py"), "--path", str(p), "--quiet"],
         capture_output=True, text=True,
     )
     if rc.returncode == 0:
@@ -393,34 +395,123 @@ def check_hooks_installed(proj: Path) -> CheckResult:
                            f"hooks.json is not valid JSON: {e}",
                            "Replace with the pack's template.")
     declared = set((data.get("hooks") or {}).keys())
-    expected = {"sessionStart", "afterFileEdit", "subagentStart", "subagentStop", "stop"}
+    expected = {"sessionStart", "afterFileEdit", "subagentStart",
+                "subagentStop", "beforeShellExecution", "stop"}
     missing = sorted(expected - declared)
     if missing:
         return CheckResult("hooks-json", "error", False,
                            f"hooks.json missing events: {missing}",
-                           "Merge the pack's hooks.json; do not drop unrelated hooks if they exist.")
+                           "Merge the pack's hooks.json (re-run upgrade.py "
+                           "--apply); do not drop unrelated hooks if they exist.")
     return CheckResult("hooks-json", "error", True,
-                       "hooks.json declares all 5 enforcement events")
+                       "hooks.json declares all 6 enforcement events")
+
+
+def _sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def check_pack_manifest_drift(proj: Path) -> CheckResult:
+    """Supply-chain integrity. .cursor/pack-manifest.json records the sha256
+    of every pack-owned file the installer placed. We recompute and compare,
+    so post-install tampering -- e.g. weakening gate-stop.sh, hook_runner.py,
+    or security-reviewer.md after integration -- is DETECTED here instead of
+    passing verification clean. (This is the check the pack-manifest was
+    written for; without it the supply-chain promise was hollow.)"""
+    mf = proj / ".cursor" / "pack-manifest.json"
+    if not mf.exists():
+        return CheckResult(
+            "pack-manifest-drift", "warning", True,
+            "no .cursor/pack-manifest.json -- drift detection unavailable",
+            "Run: python3 harmonist/agents/scripts/upgrade.py --apply  "
+            "(records sha256 of pack-owned files so later tampering is "
+            "detectable).",
+        )
+    try:
+        data = json.loads(mf.read_text(encoding="utf-8"))
+        files = data.get("files") or {}
+    except Exception as e:
+        return CheckResult(
+            "pack-manifest-drift", "error", False,
+            f"pack-manifest.json is unreadable ({e.__class__.__name__})",
+            "Re-run upgrade.py --apply to rewrite the manifest.",
+        )
+    if not isinstance(files, dict) or not files:
+        return CheckResult(
+            "pack-manifest-drift", "warning", True,
+            "pack-manifest.json records no file hashes",
+            "Run upgrade.py --apply to populate it.",
+        )
+    missing: list[str] = []
+    drifted: list[str] = []
+    for rel, expected in files.items():
+        fp = proj / rel
+        if not fp.exists():
+            missing.append(rel)
+            continue
+        try:
+            if _sha256_file(fp) != expected:
+                drifted.append(rel)
+        except Exception:
+            drifted.append(rel)
+    if not missing and not drifted:
+        return CheckResult(
+            "pack-manifest-drift", "error", True,
+            f"all {len(files)} pack-owned files match the recorded manifest",
+        )
+    problems: list[str] = []
+    if drifted:
+        problems.append(f"{len(drifted)} modified (e.g. {sorted(drifted)[:5]})")
+    if missing:
+        problems.append(f"{len(missing)} missing (e.g. {sorted(missing)[:5]})")
+    return CheckResult(
+        "pack-manifest-drift", "error", False,
+        "pack-owned files drifted from the recorded manifest: "
+        + "; ".join(problems),
+        "These files are managed by the pack and must not be edited in place "
+        "(it weakens enforcement and breaks predictable upgrades). Restore "
+        "them: python3 harmonist/agents/scripts/upgrade.py --apply  -- or, if "
+        "a change was intentional, re-run the installer to re-record the "
+        "manifest.",
+    )
 
 
 def check_hook_scripts(proj: Path) -> CheckResult:
     scripts_dir = proj / ".cursor" / "hooks" / "scripts"
-    required = ["lib.sh", "seed-session.sh", "record-write.sh",
-                "record-subagent-start.sh", "record-subagent-stop.sh",
-                "gate-stop.sh"]
-    missing = [f for f in required if not (scripts_dir / f).exists()]
+    # hook_runner.py is the cross-platform active path that hooks.json
+    # invokes on every OS (incl. native Windows, which has no bash).
+    runner = scripts_dir / "hook_runner.py"
+    if not runner.exists():
+        return CheckResult(
+            "hook-scripts", "error", False,
+            "hook_runner.py missing -- the cross-platform hook runner that "
+            "hooks.json invokes is not installed",
+            "Run: python3 harmonist/agents/scripts/upgrade.py --apply",
+        )
+    # The POSIX .sh scripts back hooks.posix.json and the shell test
+    # harness; the installer ships them on every OS for parity.
+    sh_scripts = ["lib.sh", "seed-session.sh", "record-write.sh",
+                  "record-subagent-start.sh", "record-subagent-stop.sh",
+                  "gate-stop.sh", "gate-shell.sh"]
+    missing = [f for f in sh_scripts if not (scripts_dir / f).exists()]
     if missing:
         return CheckResult("hook-scripts", "error", False,
                            f"hook scripts missing: {missing}",
-                           "Copy harmonist/hooks/scripts/* into .cursor/hooks/scripts/ "
-                           "and chmod +x each.")
-    not_exec = [f for f in required if not (scripts_dir / f).stat().st_mode & 0o111]
-    if not_exec:
-        return CheckResult("hook-scripts", "warning", False,
-                           f"hook scripts not executable: {not_exec}",
-                           "chmod +x .cursor/hooks/scripts/*.sh")
+                           "Copy harmonist/hooks/scripts/* into .cursor/hooks/scripts/.")
+    # The executable bit only matters where the .sh path can run; on
+    # Windows it is meaningless (hooks run via hook_runner.py).
+    if os.name != "nt":
+        not_exec = [f for f in sh_scripts if not (scripts_dir / f).stat().st_mode & 0o111]
+        if not_exec:
+            return CheckResult("hook-scripts", "warning", False,
+                               f"hook scripts not executable: {not_exec}",
+                               "chmod +x .cursor/hooks/scripts/*.sh")
     return CheckResult("hook-scripts", "error", True,
-                       "6 hook scripts present and executable")
+                       "hook_runner.py + 7 shell scripts present")
 
 
 def check_cursor_rules(proj: Path) -> CheckResult:
@@ -697,6 +788,7 @@ CHECKS = [
     check_cursor_rules,
     check_agents_md_markers,
     check_pack_version_recorded,
+    check_pack_manifest_drift,
     check_gitignore_memory,
     check_installed_agent_safety,
     check_rules_conflicts,

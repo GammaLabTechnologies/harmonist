@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [backend, architecture, refactoring, implementation, strategy, api, reporting]
 domains: [all]
 distinguishes_from: [engineering-migration-engineer, engineering-code-reviewer, engineering-graphql-grpc-architect]

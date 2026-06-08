@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [automation-governance, strategy, implementation, data-science, analytics-reporting, feedback-analysis, ux-design, observability, performance, product-management]
 domains: [all]
 distinguishes_from: [project-management-studio-producer, project-management-experiment-tracker]

@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [qa, reality-check, mobile, e2e-testing, reporting]
 domains: [all]
 distinguishes_from: [qa-verifier, testing-reality-checker]

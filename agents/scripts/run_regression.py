@@ -54,6 +54,7 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -61,6 +62,50 @@ from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
+
+
+def _terminate_tree(proc: "subprocess.Popen") -> None:
+    """Kill the step's WHOLE process tree. With shell=True a timeout kills
+    only the shell (`sh -c "<cmd>"`); the real test/build child can outlive
+    it as an orphan and keep holding ports / CPU. Each step runs in its own
+    process group / job so we can tear the whole thing down."""
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                           capture_output=True)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        pass
+    try:
+        proc.kill()
+    except Exception:
+        pass
+
+
+def _run_once(cmd: str, cwd: Path, timeout: int) -> "tuple[int, str, str, bool]":
+    """Run one attempt in its own process group. Returns
+    (returncode, stdout, stderr, timed_out)."""
+    popen_kwargs: dict = dict(
+        shell=True, cwd=str(cwd),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        popen_kwargs["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return (proc.returncode, out or "", err or "", False)
+    except subprocess.TimeoutExpired:
+        _terminate_tree(proc)
+        try:
+            out, err = proc.communicate(timeout=5)
+        except Exception:
+            out, err = "", ""
+        return (124, out or "", err or "", True)
 
 
 def _import_detector():
@@ -90,7 +135,8 @@ def _state_path(project: Path) -> Path | None:
 
 def _run_step(name: str, cmd: str, cwd: Path, timeout: int,
               retries: int = 0) -> dict:
-    """Run a single step via /bin/sh -c to honour shell quoting, capture
+    """Run a single step via the platform shell (subprocess shell=True --
+    /bin/sh on POSIX, cmd.exe on Windows) to honour shell quoting, capture
     stdout+stderr separately, return a structured record.
 
     If `retries > 0`, a non-zero exit code is retried up to `retries`
@@ -102,61 +148,59 @@ def _run_step(name: str, cmd: str, cwd: Path, timeout: int,
     a re-run would succeed."""
     started = time.time()
     attempts = 0
-    last_proc: subprocess.CompletedProcess | None = None
-    timeout_hit = False
     max_attempts = max(1, retries + 1)
+    rc, out, err, timed_out = 1, "", "", False
 
     while attempts < max_attempts:
         attempts += 1
-        try:
-            last_proc = subprocess.run(
-                cmd, shell=True, cwd=str(cwd),
-                capture_output=True, text=True, timeout=timeout,
-            )
-            if last_proc.returncode == 0:
-                break
-        except subprocess.TimeoutExpired:
-            timeout_hit = True
+        rc, out, err, timed_out = _run_once(cmd, cwd, timeout)
+        if timed_out:
             break  # timeouts aren't flakiness; surface them
+        if rc == 0:
+            break
         if attempts < max_attempts:
             time.sleep(min(2 ** (attempts - 1), 8))
 
-    if timeout_hit:
+    if timed_out:
         return {
             "step":     name,
             "command":  cmd,
             "exit_code": 124,
-            "duration": timeout,
+            "duration": round(time.time() - started, 2),
             "attempts": attempts,
             "flaky":    False,
-            "stdout_tail": "",
-            "stderr_tail": f"TIMEOUT after {timeout}s",
+            "stdout_tail": "\n".join(out.splitlines()[-20:]),
+            "stderr_tail": (f"TIMEOUT after {timeout}s\n"
+                            + "\n".join(err.splitlines()[-20:])).strip(),
             "ran_at":   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
-    assert last_proc is not None
-    stdout_tail = "\n".join(last_proc.stdout.splitlines()[-20:])
-    stderr_tail = "\n".join(last_proc.stderr.splitlines()[-20:])
-    flaky = attempts > 1 and last_proc.returncode == 0
+    flaky = attempts > 1 and rc == 0
     return {
         "step":     name,
         "command":  cmd,
-        "exit_code": last_proc.returncode,
+        "exit_code": rc,
         "duration": round(time.time() - started, 2),
         "attempts": attempts,
         "flaky":    flaky,
-        "stdout_tail": stdout_tail,
-        "stderr_tail": stderr_tail,
+        "stdout_tail": "\n".join(out.splitlines()[-20:]),
+        "stderr_tail": "\n".join(err.splitlines()[-20:]),
         "ran_at":   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
 
-def _write_state(project: Path, results: list[dict], ok: bool) -> str | None:
+def _write_state(project: Path, results: list[dict], run_ok: bool,
+                 gate_ok: bool, plan: list[str], partial: bool) -> str | None:
     """Append the regression result to hooks state under
     `regression_results` (list of runs, latest last). Also bumps a
     telemetry counter for flaky-but-eventually-passed steps, so the
     usage report can surface infrastructure flakiness separately from
-    real bugs."""
+    real bugs.
+
+    `run_ok` is whether the steps that RAN passed; `gate_ok` is whether the
+    run is allowed to satisfy the regression gate. They differ for a PARTIAL
+    run: e.g. `--steps lint` passing must NOT flip the gate green while the
+    project's test step was never executed."""
     sp = _state_path(project)
     if sp is None or not sp.parent.exists():
         return None
@@ -167,15 +211,21 @@ def _write_state(project: Path, results: list[dict], ok: bool) -> str | None:
     runs = data.setdefault("regression_results", [])
     runs.append({
         "at":    time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "ok":    ok,
+        "ok":    run_ok,
+        "gate_ok": gate_ok,
+        "steps_run": list(plan),
+        "partial": partial,
         "steps": results,
     })
     # Keep only the last 10 runs to bound state size.
     if len(runs) > 10:
         del runs[0:len(runs) - 10]
-    # Also set a convenience flag: last-regression-ok. gate-stop reads
-    # only this when `require_regression_passed` is enabled.
-    data["last_regression_ok"] = ok
+    # Convenience flags the stop gate reads when `require_regression_passed`
+    # / `require_affected_tests` is enabled. A partial run that skipped the
+    # detected test step can never set this true.
+    data["last_regression_ok"] = gate_ok
+    data["last_regression_partial"] = partial
+    data["last_regression_steps"] = list(plan)
     data["last_regression_at"] = runs[-1]["at"]
     try:
         import tempfile
@@ -297,21 +347,37 @@ def main(argv: list[str]) -> int:
                 if res["flaky"] else ""
             print(f"    ok ({res['duration']}s){flaky_note}")
 
+    # Gate-worthiness vs run-success. If the project HAS a test command but
+    # this invocation didn't run it (a partial `--steps` subset), the run
+    # must not flip the regression gate green -- otherwise `--steps lint`
+    # would satisfy `require_regression_passed`.
+    test_detected = bool(flat.get("test"))
+    covered_test = ("test" in plan) or (not test_detected)
+    partial = test_detected and not covered_test
+    gate_ok = overall_ok and covered_test
+
     write_err: str | None = None
     if not args.no_write:
-        write_err = _write_state(project, results, overall_ok)
+        write_err = _write_state(project, results, overall_ok, gate_ok,
+                                 plan, partial)
 
     if args.json:
         print(json.dumps({
             "project":    str(project),
             "plan":       plan,
             "ok":         overall_ok,
+            "gate_ok":    gate_ok,
+            "partial":    partial,
             "results":    results,
             "state_write_error": write_err,
         }, indent=2))
     else:
         if write_err:
             print(f"  WARN could not update hooks state: {write_err}")
+        if partial:
+            print("  NOTE partial run: the project's test step was not "
+                  "included, so this does NOT satisfy the regression gate "
+                  "(last_regression_ok stays false).")
         print(f"\n  Summary: {'PASSED' if overall_ok else 'FAILED'}  "
               f"({len(plan)} steps, "
               f"{sum(1 for r in results if r['exit_code']==0)} ok, "

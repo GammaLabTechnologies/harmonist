@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, social-media, community-building, linkedin, twitter, analytics-reporting, brand-design, content-creation, experiment-tracking, legal-compliance]
 domains: [all]
 version: 1.0.0

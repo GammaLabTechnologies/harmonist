@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [implementation, api-testing, git, reality-check, workflow-design, api, auth, backend, payments, qa]
 domains: [all]
 version: 1.0.0

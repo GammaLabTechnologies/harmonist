@@ -6,8 +6,8 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
-tags: [observability, data-science, ml, ux-design, security, reporting, go, qa, performance]
+model: claude-opus-4-8
+tags: [observability, data-science, ml, ux-design, security, reporting, go, qa, performance, vulnerability-assessment]
 domains: [all]
 version: 1.0.0
 updated_at: 2026-04-23

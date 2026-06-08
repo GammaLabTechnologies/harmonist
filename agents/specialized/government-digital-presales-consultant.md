@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [gov-tech, coordination, security, authz, ui-design, ux-design, architecture, infra, strategy, implementation]
 domains: [china-market, gov-tech]
 version: 1.0.0

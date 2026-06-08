@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [experiment-tracking, feedback-analysis, ux-research, next, observability, tracking, auth, implementation, api, typescript]
 domains: [all]
 version: 1.0.0

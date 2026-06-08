@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [review, qa, evidence-collection, regression, reality-check]
 domains: [all]
 distinguishes_from: [testing-reality-checker, testing-evidence-collector, bg-regression-runner]

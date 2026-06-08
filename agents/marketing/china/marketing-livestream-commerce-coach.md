@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, livestream-commerce, douyin, kuaishou, ecommerce, data-science, observability, strategy, payments, infra]
 domains: [china-market]
 distinguishes_from: [marketing-douyin-strategist, marketing-kuaishou-strategist, marketing-china-ecommerce-operator]

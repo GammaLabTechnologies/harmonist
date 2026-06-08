@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [review, audit, refactoring, minimal-change, architecture]
 domains: [all]
 distinguishes_from: [engineering-code-reviewer, engineering-laravel-livewire-specialist]

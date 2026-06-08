@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [review, audit, security, owasp, auth, authz, secrets]
 domains: [all]
 distinguishes_from: [engineering-security-engineer, engineering-code-reviewer, engineering-threat-detection-engineer, blockchain-security-auditor, compliance-auditor]

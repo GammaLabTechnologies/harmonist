@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [studio-ops, strategy, brand-design, content-creation, project-planning, growth, observability, finops, performance]
 domains: [all]
 version: 1.0.0

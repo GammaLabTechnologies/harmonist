@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, api, tiktok, instagram, e2e-testing, data-science, experiment-tracking, knowledge-management, next, qa]
 domains: [all]
 version: 1.0.0

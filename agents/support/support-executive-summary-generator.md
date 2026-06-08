@@ -6,7 +6,7 @@ category: support
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [executive-summary, strategy, qa, next, ai]
 domains: [all]
 version: 1.0.0

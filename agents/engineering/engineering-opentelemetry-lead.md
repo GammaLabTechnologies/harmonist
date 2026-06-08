@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [observability-instrumentation, observability, sre, backend, architecture, implementation, strategy, ai, privacy]
 domains: [all]
 distinguishes_from: [engineering-sre, sre-observability, engineering-backend-architect]

@@ -352,6 +352,10 @@ def scan(
     for p in _iter_agent_files(targets):
         try:
             text = p.read_text(encoding="utf-8", errors="replace")
+            # Normalize CRLF/CR so the `\A---\n` frontmatter match works on
+            # Windows checkouts (otherwise category is never found and the
+            # file is silently skipped).
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
         except Exception:
             continue
         try:

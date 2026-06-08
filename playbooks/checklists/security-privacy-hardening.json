@@ -1,0 +1,86 @@
+[
+  {
+    "title": "Authentication & Sessions",
+    "slug": "auth-sessions",
+    "intro": "How the application proves and maintains who a user is. Most breaches start at a weak auth boundary.",
+    "checklist": [
+      {"point": "Hash passwords with a slow, salted KDF", "priority": "essential", "details": "Store passwords with bcrypt / scrypt / Argon2 (never MD5/SHA-1, never plaintext, never reversible encryption). Use per-user salts and a sane work factor."},
+      {"point": "Enforce MFA for sensitive accounts", "priority": "essential", "details": "Offer and, for admin/privileged roles, require a second factor (TOTP/WebAuthn). Treat SMS as a fallback, not the primary factor."},
+      {"point": "Sessions: secure, httpOnly, sameSite cookies", "priority": "essential", "details": "Set Secure + HttpOnly + SameSite on session cookies, rotate the session id on login/privilege change, and expire idle sessions. Provide a real server-side logout."},
+      {"point": "Rate-limit and lock out credential endpoints", "priority": "recommended", "details": "Throttle login, password-reset, and token endpoints; add backoff/lockout to blunt brute force and credential stuffing. Log repeated failures."},
+      {"point": "Check passwords against known-breach lists", "priority": "advanced", "details": "Reject passwords found in breach corpora (e.g. a k-anonymity range query) at set/change time, and notify users of at-risk credentials."}
+    ]
+  },
+  {
+    "title": "Authorization & Access Control",
+    "slug": "authorization",
+    "intro": "Being logged in is not the same as being allowed. Most access bugs are missing object-level checks.",
+    "checklist": [
+      {"point": "Authorize every request, default-deny", "priority": "essential", "details": "Check authorization on the server for every action, not just identity. Default to deny; grant explicitly. Never rely on the UI hiding a button."},
+      {"point": "Enforce object-level access (no IDOR)", "priority": "essential", "details": "When an action references an object by id, verify the caller owns/may access THAT object. Don't trust ids from the client."},
+      {"point": "Least privilege for roles and tokens", "priority": "recommended", "details": "Scope roles, API keys, and service accounts to the minimum they need. Separate read from write, and admin from user."}
+    ]
+  },
+  {
+    "title": "Secrets Management",
+    "slug": "secrets",
+    "intro": "Credentials, keys, and tokens are the keys to the kingdom. They must never live in code or logs.",
+    "checklist": [
+      {"point": "No secrets in source, config, or logs", "priority": "essential", "details": "Keep secrets out of the repo, client bundles, error messages, and logs. Use env vars or a secrets manager; reference, don't embed."},
+      {"point": "Rotate and scope secrets", "priority": "recommended", "details": "Give each service its own credentials, scope them narrowly, and rotate on a schedule and immediately on suspected exposure."},
+      {"point": "Scan history and CI for leaked secrets", "priority": "recommended", "details": "Run a secret scanner over the repo (including git history) and in CI; revoke anything that ever landed in a commit."}
+    ]
+  },
+  {
+    "title": "Input, Output & Injection",
+    "slug": "injection",
+    "intro": "Treat all external input as hostile until proven otherwise; encode at every sink.",
+    "checklist": [
+      {"point": "Parameterize all queries", "priority": "essential", "details": "Use parameterized queries / prepared statements / safe ORM APIs — never build SQL, NoSQL, or shell commands by string concatenation with user input."},
+      {"point": "Encode output at the sink (no XSS)", "priority": "essential", "details": "Context-encode data when rendering (HTML/JS/URL/attribute). Prefer auto-escaping templates; set a Content-Security-Policy as defense in depth."},
+      {"point": "Validate and bound all input", "priority": "recommended", "details": "Validate shape, type, and size at the boundary; reject unexpected structure. Apply limits to prevent resource exhaustion."},
+      {"point": "Lock down outbound requests (no SSRF)", "priority": "advanced", "details": "When fetching user-supplied URLs, allowlist destinations, block internal ranges/metadata endpoints, and disable unexpected redirects."}
+    ]
+  },
+  {
+    "title": "Data Protection & Privacy",
+    "slug": "data-privacy",
+    "intro": "Collect the least, protect what you keep, and let users exercise their rights. Privacy is an engineering constraint, not a footer link.",
+    "checklist": [
+      {"point": "Minimize the personal data you collect", "priority": "essential", "details": "Only collect PII you have a concrete purpose for. Prefer not collecting, pseudonymizing, or aggregating over storing raw personal data."},
+      {"point": "Encrypt sensitive data in transit and at rest", "priority": "essential", "details": "TLS everywhere; encrypt sensitive fields/at-rest stores. Use vetted primitives — never home-rolled crypto."},
+      {"point": "Define retention and a real deletion path", "priority": "recommended", "details": "Set retention windows and support access/export/erase requests — including backups, logs, caches, and third parties, not just the primary DB."},
+      {"point": "Keep PII out of logs, analytics, and prompts", "priority": "recommended", "details": "Scrub personal data before it reaches logs, traces, error reporting, analytics, or LLM prompts. Review what third-party SDKs exfiltrate."}
+    ]
+  },
+  {
+    "title": "Dependencies & Supply Chain",
+    "slug": "supply-chain",
+    "intro": "Most of your code is someone else's. A vulnerable or malicious dependency is your vulnerability.",
+    "checklist": [
+      {"point": "Pin and lock dependency versions", "priority": "essential", "details": "Commit a lockfile so builds are reproducible. Avoid floating ranges for anything security-relevant."},
+      {"point": "Scan dependencies for known CVEs", "priority": "essential", "details": "Run an SCA / audit in CI and triage findings by reachability and severity (see the dependency-vulnerability-remediation skill)."},
+      {"point": "Vet new dependencies before adopting", "priority": "recommended", "details": "Check maintenance, popularity, permissions, and install scripts before adding a package. Fewer, well-maintained deps beat many unvetted ones."},
+      {"point": "Verify artifact integrity / provenance", "priority": "advanced", "details": "Use integrity hashes / signatures and, where available, provenance attestations so a tampered artifact is refused."}
+    ]
+  },
+  {
+    "title": "Infrastructure & Deployment",
+    "slug": "infra-deploy",
+    "intro": "A secure app on insecure infrastructure is still insecure.",
+    "checklist": [
+      {"point": "Harden transport and headers", "priority": "essential", "details": "Enforce HTTPS/HSTS, modern TLS, and security headers (CSP, X-Content-Type-Options, frame ancestors). Redirect HTTP to HTTPS."},
+      {"point": "Don't run as root; drop capabilities", "priority": "recommended", "details": "Run services as a non-root user with the minimum capabilities/permissions. Use read-only filesystems where possible."},
+      {"point": "Fail safe and have a rollback path", "priority": "recommended", "details": "Default configs and feature flags should fail closed. Every deploy should be reversible (forward/compensating migrations, not history edits)."}
+    ]
+  },
+  {
+    "title": "Logging, Monitoring & Response",
+    "slug": "observability-response",
+    "intro": "You can't respond to what you can't see — but logs must not become a liability.",
+    "checklist": [
+      {"point": "Log security-relevant events (without secrets)", "priority": "essential", "details": "Record auth events, access-control denials, and admin actions with enough context to investigate — and nothing sensitive (no secrets/PII)."},
+      {"point": "Alert on anomalies and have an IR plan", "priority": "recommended", "details": "Alert on spikes in failures/denials and have a written incident-response path (see the incident-response skill) before you need it."}
+    ]
+  }
+]

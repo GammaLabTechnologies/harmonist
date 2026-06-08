@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [security, performance, qa]
 domains: [all]
 distinguishes_from: [code-quality-auditor, security-reviewer, engineering-laravel-livewire-specialist]

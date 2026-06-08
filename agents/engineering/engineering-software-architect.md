@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [architecture, microservices]
 domains: [all]
 distinguishes_from: [engineering-backend-architect, specialized-workflow-architect]

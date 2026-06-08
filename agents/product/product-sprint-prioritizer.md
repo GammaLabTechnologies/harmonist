@@ -6,7 +6,7 @@ category: product
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [prioritization, product-management, coordination, experiment-tracking, tracking, observability, performance]
 domains: [all]
 version: 1.0.0

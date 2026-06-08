@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [reddit, growth, community-building, content-creation, strategy, coordination]
 domains: [all]
 version: 1.0.0

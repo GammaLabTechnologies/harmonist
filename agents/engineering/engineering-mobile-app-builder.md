@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [mobile, ios, android, ux-design, aso, experiment-tracking, feedback-analysis, frontend, infra, performance]
 domains: [all]
 version: 1.0.0

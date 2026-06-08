@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, xiaohongshu, community-building, tracking, content-creation, experiment-tracking, performance-testing, strategy, performance, infra]
 domains: [china-market]
 version: 1.0.0

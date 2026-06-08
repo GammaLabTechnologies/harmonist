@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, weibo, brand-design, content-creation, experiment-tracking, livestream-commerce, paid-audit, strategy, performance, infra]
 domains: [china-market]
 version: 1.0.0

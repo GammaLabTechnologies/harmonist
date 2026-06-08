@@ -11,8 +11,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)](CHANGELOG.md)
-[![Agents: 186](https://img.shields.io/badge/agents-186-purple.svg)](agents/index.json)
-[![Tests: 430+](https://img.shields.io/badge/tests-430+-success.svg)](#testing)
+[![Agents: 193](https://img.shields.io/badge/agents-193-purple.svg)](agents/index.json)
+[![Tests: 550+](https://img.shields.io/badge/tests-550+-success.svg)](#testing)
 [![Stdlib only](https://img.shields.io/badge/dependencies-stdlib%20only-lightgrey.svg)](#requirements)
 
 **Built and maintained by [GammaLab](https://gammalab.ae) · [@GammaLabTechnologies](https://github.com/GammaLabTechnologies)**
@@ -40,7 +40,7 @@ enforcement is a mechanical gate, not a polite request in a prompt**.
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
 - [Architecture](#architecture)
-- [The 186-agent catalogue](#the-186-agent-catalogue)
+- [The 193-agent catalogue](#the-193-agent-catalogue)
 - [Mechanical enforcement](#mechanical-enforcement)
 - [Structured validated memory](#structured-validated-memory)
 - [Supply-chain integrity](#supply-chain-integrity)
@@ -139,9 +139,9 @@ tokens with `secret:` prefixes, and DB connection strings with
 embedded credentials. Placeholder fences (`${VAR}`, `<NAME>`) suppress
 the scan so your templates still write cleanly.
 
-### 5. 186 curated domain specialists, not one generic "coder"
+### 5. 193 curated domain specialists, not one generic "coder"
 
-Harmonist's catalogue is not a handful of roles. It's **186 curated
+Harmonist's catalogue is not a handful of roles. It's **193 curated
 specialists** across 16 categories: blockchain-security-auditor for
 Solidity audits, zk-steward for zero-knowledge circuits, visionos-
 spatial-engineer for Apple Vision Pro, wechat-mini-program-developer
@@ -162,14 +162,21 @@ specialists from `agents/index.json`, and wires everything up —
 including writing a project-specific `AGENTS.md` with domain-tailored
 invariants. The AI integrates itself.
 
-### 7. Zero runtime dependencies, cross-platform parity
+### 7. Zero runtime dependencies, runs natively on every OS
 
 No npm, no Docker, no LangChain, no vector database. **Pure Python
-stdlib + bash.** The enforcement runtime has two implementations —
-POSIX `.sh` scripts for macOS / Linux / WSL, and a pure-Python
-`hook_runner.py` for native Windows — and both paths are exercised
-against identical test scenarios. 430+ test assertions in CI keep
-them bit-for-bit compatible.
+stdlib** (with optional POSIX `.sh` conveniences). Integration,
+upgrade, conversion, install, and the enforcement runtime all run
+natively on **Windows, macOS, and Linux** — no WSL or Git Bash
+required. The enforcement runtime has two implementations — POSIX
+`.sh` scripts for macOS / Linux / WSL, and a pure-Python
+`hook_runner.py` that is the active path on every OS (and the only
+one on native Windows). `upgrade.py` renders `.cursor/hooks.json`
+with a Python launcher that actually exists on the host (`py -3` /
+`python` on Windows, `python3` on POSIX). `.gitattributes` pins
+`eol=lf` so a Windows checkout can't break `MANIFEST.sha256`. Both
+hook paths are exercised against identical scenarios, and a
+native-Windows CI job runs the full install path end-to-end.
 
 ---
 
@@ -177,9 +184,11 @@ them bit-for-bit compatible.
 
 - **Python 3.9+** — every script ships with a version guard; older
   interpreters exit with a per-OS install hint.
-- **Bash 3.2+** for POSIX shell paths (macOS default works). On native
-  Windows, the pure-Python `hook_runner.py` takes over; no WSL or Git
-  Bash required.
+- **Bash 3.2+** is *optional* — only needed for the POSIX `.sh`
+  conveniences and the shell test harness (macOS default works). All
+  integration, upgrade, conversion, and install tooling is pure Python,
+  and on native Windows the pure-Python `hook_runner.py` is the active
+  hook path; no WSL or Git Bash required.
 - **Git** for version tracking.
 - **An AI coding assistant that supports subagent dispatch** — Cursor
   is the primary integration; Claude Code, Copilot, Windsurf, Aider,
@@ -220,6 +229,15 @@ git clone https://github.com/GammaLabTechnologies/harmonist.git
 python3 harmonist/agents/scripts/integrate.py --pack harmonist --project .
 ```
 
+On **native Windows** (PowerShell / cmd, no WSL or Git Bash), use the
+Python launcher — every script is pure stdlib and cross-platform:
+
+```powershell
+cd your-project\
+git clone https://github.com/GammaLabTechnologies/harmonist.git
+py -3 harmonist\agents\scripts\integrate.py --pack harmonist --project .
+```
+
 ### Option 3 — Manual integration
 
 See [`GUIDE_EN.md`](GUIDE_EN.md) for the step-by-step manual path.
@@ -242,7 +260,7 @@ See [`GUIDE_EN.md`](GUIDE_EN.md) for the step-by-step manual path.
                      │   agents/index.json        │   ← generated
                      │                            │
                      │   by category · by tag     │   ← routing table
-                     │   186 entries              │
+                     │   193 entries              │
                      └─────────────┬──────────────┘
                                    │  routes to
             ┌──────────────────────┼──────────────────────┐
@@ -279,8 +297,10 @@ See [`GUIDE_EN.md`](GUIDE_EN.md) for the step-by-step manual path.
    `protocol: persona` agents are free-form specialists with domain
    depth.
 4. **Hook-observed execution.** `sessionStart`, `afterFileEdit`,
-   `subagentStart`, `subagentStop`, and `stop` hooks track the full
-   lifecycle. The `stop` hook is the gate.
+   `subagentStart`, `subagentStop`, `beforeShellExecution`, and `stop`
+   hooks track the full lifecycle. The `stop` hook is the gate; the
+   `beforeShellExecution` hook is a human-in-the-loop gate on destructive
+   commands.
 5. **Persistent memory.** Between sessions, state / decisions /
    patterns live under `.cursor/memory/`, linked by correlation IDs.
    The next session reads the last three state snapshots and three
@@ -288,7 +308,7 @@ See [`GUIDE_EN.md`](GUIDE_EN.md) for the step-by-step manual path.
 
 ---
 
-## The 186-agent catalogue
+## The 193-agent catalogue
 
 Every count below is mirrored from `agents/index.json` and verified by
 `check_pack_health.py` — the table and the index cannot drift.
@@ -310,7 +330,7 @@ Every count below is mirrored from `agents/index.json` and verified by
 | `academic`          |   5   | persona  | Research, psychology, history, anthropology         |
 | `game-development`  |  20   | persona  | Unity, Unreal, Godot, Roblox, Blender               |
 | `spatial-computing` |   6   | persona  | visionOS, WebXR, Metal, XR interaction              |
-| `specialized`       |  17   | persona  | Blockchain audit, MCP builder, Salesforce, ZK, niche |
+| `specialized`       |  24   | persona  | Blockchain audit, MCP builder, Salesforce, ZK, authorized security testing, privacy engineering, niche |
 
 Each agent carries structured frontmatter: `description`, `tags`,
 `domains`, `distinguishes_from` (near-peers), `disambiguation`
@@ -326,14 +346,15 @@ The enforcement layer is what separates Harmonist from a "nice prompt
 pack". It lives in `hooks/` and gets installed into `.cursor/hooks/`
 at integration time.
 
-### Five hook phases
+### Six hook phases
 
 | Phase              | What happens                                                                |
 |--------------------|-----------------------------------------------------------------------------|
 | `sessionStart`     | Bootstrap correlation_id, inject last 3 state / decision memory entries, warn about prior incidents |
 | `afterFileEdit`    | Record every write to session state for the stop gate                       |
-| `subagentStart`    | Parse `AGENT: <slug>` marker, credit the reviewer, enforce `readonly` capability scoping |
+| `subagentStart`    | Parse `AGENT: <slug>` marker, credit the reviewer, enforce `readonly` capability scoping, and cap concurrent subagents |
 | `subagentStop`     | Record verdict, update telemetry                                            |
+| `beforeShellExecution` | **HITL gate.** Match the command against the dangerous-command patterns; `ask` for human confirmation (or `deny`) before a destructive command runs |
 | `stop`             | **The gate.** Verify reviewers ran, memory updated, protocol satisfied. Return `followup_message` if not. |
 
 ### What the stop gate actually checks
@@ -407,6 +428,45 @@ validator.
 
 ---
 
+## Local repo map (code intelligence)
+
+Most of an agent's budget on an unfamiliar codebase is spent *re-discovering*
+it — grep, glob, Read, repeat. `repomap.py` builds a **local, zero-dependency
+code map** (pure Python stdlib: `ast` + regex + `sqlite3` — no tree-sitter, no
+Node, no native build) so `repo-scout` and the orchestrator **query structure
+instead of scanning files**:
+
+```bash
+python3 .cursor/repomap/repomap.py build               # index symbols + import graph
+python3 .cursor/repomap/repomap.py explore "<question / symbol names>"  # relevant symbols, grouped by file
+python3 .cursor/repomap/repomap.py search <SymbolName>  # exact location + signature
+python3 .cursor/repomap/repomap.py dependents <file>    # upstream — who imports this
+python3 .cursor/repomap/repomap.py impact   <files...>  # transitive blast radius of a change
+python3 .cursor/repomap/repomap.py affected <files...>  # which test files a change can break
+python3 .cursor/repomap/repomap.py refresh              # incremental (only changed files)
+```
+
+Python files are parsed precisely via the standard `ast`; other languages use
+lightweight name-based extraction. The index lives at `.cursor/repomap/` (built
+during integration, gitignored, refreshed incrementally by file hash).
+
+**Where it pays off:**
+
+- **Cheaper scouting.** `repo-scout` answers `bounded_context`,
+  `integration_points`, and `key_tests` from the map in a couple of calls
+  instead of a grep/Read discovery loop.
+- **Impact-aware enforcement.** The `stop` hook can require that the tests a
+  change actually affects were run — set `require_affected_tests: true` in
+  `.cursor/hooks/config.json`. `bg-regression-runner` uses the same
+  `affected` query to run only the relevant tests, and `sessionStart` warns
+  when the map is stale.
+
+This is Harmonist's own clean-room take on the "query a code graph, don't
+grep" idea — built to its zero-dependency, drop-in-a-box constraints, and
+wired into the enforcement gate rather than bolted on as a separate runtime.
+
+---
+
 ## Supply-chain integrity
 
 Every shipped file has a sha256 entry in `MANIFEST.sha256`. This buys:
@@ -457,7 +517,11 @@ guards built in for legitimate MITRE ATT&CK threat documentation.
 Harmonist ships converters for 11 AI coding assistants. Run
 `./agents/scripts/convert.sh --tool <name>` to regenerate the
 target-specific artifacts, then `./agents/scripts/install.sh` to
-place them in the right spots.
+place them in the right spots. On **native Windows**, call the
+cross-platform Python entry points directly:
+`py -3 agents\scripts\convert.py --tool <name>` then
+`py -3 agents\scripts\install.py`. (The `.sh` scripts are thin POSIX
+wrappers around the same `convert.py` / `install.py`.)
 
 | Tool              | Surface produced                                         |
 |-------------------|----------------------------------------------------------|
@@ -498,6 +562,7 @@ for the `## Deep Reference` convention that makes thin mode possible.
 | `insert_deep_ref_marker.py`         | Add `## Deep Reference` cut point to long persona agents                     |
 | `extract_essentials.py`             | Produce the thin variant of a persona agent                                  |
 | `report_usage.py`                   | Render local agent-usage telemetry; recommend dead-balance removal           |
+| `repomap.py`                        | Zero-dep local code map — symbols + import graph; `explore` / `search` / `impact` / `affected` so the scout queries instead of grepping |
 
 Full script index: [`agents/scripts/`](agents/scripts/).
 
@@ -525,24 +590,25 @@ Full script index: [`agents/scripts/`](agents/scripts/).
 ## Testing
 
 The enforcement layer, memory CLI, and every script ship with
-exhaustive test coverage. `430+ test assertions` across hooks, memory,
+exhaustive test coverage. `550+ test assertions` across hooks, memory,
 and shell-based integration suites — all green in CI on every push.
 
 | Suite                              | Assertions | Covers                                              |
 |------------------------------------|-----------:|-----------------------------------------------------|
-| Hook tests                         |         30 | All 5 phases, capability scoping, loop-limit, incident surfacing, cross-platform runner parity |
-| Memory tests                       |         29 | Append, validate, search, rotate, dedupe, migrations, secret patterns |
-| Integration + upgrade + install_extras  |        90+ | End-to-end integration, snapshots, rollback, on-demand specialist install |
+| Hook tests                         |         54 | All 6 phases (incl. the `beforeShellExecution` HITL gate), state locking, capability scoping, loop-limit / fail-closed, incident surfacing, concurrency cap, cross-platform runner parity |
+| Memory tests                       |         33 | Append, validate, search, rotate, dedupe, migrations, secret-pattern scanner (incl. first-match + extra-field bypass) |
+| Integration + upgrade + install_extras  |        90+ | End-to-end integration, snapshots, rollback, on-demand specialist install, post-install drift detection |
 | Supply-chain integrity             |         23 | MANIFEST verification, tampered-source refusal, pack-manifest tracking |
-| 15 other script suites             |        250+| lint, extract, freshness, rules-conflicts, memory-privacy, telemetry, project-context, regression detection, py-guard sync, smoke test, etc. |
+| Enforcement extras                 |         40+ | telemetry-webhook (scheme allowlist + retry), repo-map code index, git pre-commit guard, hardening-checklist validator |
+| 18 other script suites             |        300+| lint, extract, freshness, rules-conflicts, memory-privacy, telemetry, project-context, regression detection, py-guard sync, smoke test, onboarding, etc. |
 
 Run the full regression locally:
 
 ```bash
 python3 agents/scripts/check_pack_health.py       # 18 preflight checks
-bash hooks/tests/run-hook-tests.sh                # 30 scenarios
-bash memory/tests/run-memory-tests.sh             # 29 scenarios
-for t in agents/scripts/test_*.sh; do bash "$t"; done  # 17 more suites
+bash hooks/tests/run-hook-tests.sh                # 54 scenarios
+bash memory/tests/run-memory-tests.sh             # 33 scenarios
+for t in agents/scripts/test_*.sh; do bash "$t"; done  # all script suites
 ```
 
 ---
@@ -602,7 +668,7 @@ plain JSON.**
 Disable completely by setting `telemetry_enabled: false` in
 `.cursor/hooks/config.json`.
 
-### Why 186 agents? Isn't that too many?
+### Why 193 agents? Isn't that too many?
 
 Most projects activate 10–20 specialists for their actual working
 roles. The other ~170 are available but invisible — filtered out by

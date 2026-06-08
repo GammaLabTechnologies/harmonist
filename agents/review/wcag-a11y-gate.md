@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [review, a11y, audit, ui-design, ux-design, frontend, ux-research]
 domains: [all]
 distinguishes_from: [testing-accessibility-auditor, design-inclusive-visuals-specialist, qa-verifier]

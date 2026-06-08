@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [backend, architecture, api, event-driven, data-engineering, database-design, microservices, infra, audit, authz]
 domains: [all]
 distinguishes_from: [engineering-software-architect, engineering-laravel-livewire-specialist, engineering-database-optimizer]

@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, wechat, architecture, community-building, customer-support, experiment-tracking, ux-design, observability, template, infra]
 domains: [china-market]
 distinguishes_from: [marketing-wechat-official-account, marketing-china-ecommerce-operator, marketing-social-media-strategist]

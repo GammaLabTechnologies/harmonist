@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [qa, reality-check, ux-design, observability, implementation, performance]
 domains: [all]
 distinguishes_from: [qa-verifier, testing-evidence-collector]

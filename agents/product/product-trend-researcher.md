@@ -6,7 +6,7 @@ category: product
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [trend-research, strategy, data-science, ml, prioritization, ux-research, tracking, growth, qa, infra]
 domains: [all]
 version: 1.0.0

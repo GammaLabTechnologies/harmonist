@@ -6,7 +6,7 @@ category: design
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [design, ux-design, ui-design, brand-design, a11y, implementation, qa, architecture, mobile, scaling]
 domains: [all]
 version: 1.0.0

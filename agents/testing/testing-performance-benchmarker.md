@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [performance, data-science, performance-testing, infra, web, c-cpp, regression, ux-design, observability, qa]
 domains: [all]
 distinguishes_from: [sre-observability, engineering-database-optimizer]

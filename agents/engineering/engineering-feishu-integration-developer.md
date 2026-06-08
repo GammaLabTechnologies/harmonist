@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [feishu, auth, fullstack, web, api, authz, node, typescript, caching, infra]
 domains: [china-market]
 version: 1.0.0

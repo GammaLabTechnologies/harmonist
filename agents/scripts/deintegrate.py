@@ -102,6 +102,11 @@ def _pack_owned_paths(project: Path) -> list[Path]:
         if p.exists():
             paths.append(p)
 
+    # Repo map tooling + its generated index (all pack-owned / generated).
+    repomap_dir = base / "repomap"
+    if repomap_dir.exists():
+        paths.append(repomap_dir)
+
     # Cursor rules (only the canonical pack-owned one)
     rdir = base / "rules"
     prot = rdir / "protocol-enforcement.mdc"

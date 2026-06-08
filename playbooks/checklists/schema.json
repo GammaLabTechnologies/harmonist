@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Harmonist hardening checklist",
+  "description": "A structured, priority-tagged security & privacy hardening checklist for the software/product being built. Validated by validate.py (pure stdlib).",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+      "intro": {"type": "string"},
+      "checklist": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "point": {"type": "string"},
+            "priority": {"type": "string", "enum": ["essential", "recommended", "advanced"]},
+            "details": {"type": "string"}
+          },
+          "required": ["point", "priority", "details"],
+          "additionalProperties": false
+        }
+      },
+      "furtherLinks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": {"type": "string"},
+            "url": {"type": "string", "format": "uri"},
+            "description": {"type": "string"}
+          },
+          "required": ["title", "url"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["title", "slug", "intro", "checklist"],
+    "additionalProperties": false
+  }
+}

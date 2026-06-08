@@ -195,7 +195,9 @@ p.write_text(text)
 PY
 # hooks.json
 cp "$PACK/hooks/hooks.json" "$GOOD/.cursor/hooks.json"
-# hook scripts
+# hook scripts: the cross-platform Python runner (active path on every
+# OS) plus the POSIX .sh equivalents the installer also ships.
+cp "$PACK/hooks/scripts/hook_runner.py" "$GOOD/.cursor/hooks/scripts/"
 cp "$PACK/hooks/scripts/"*.sh "$GOOD/.cursor/hooks/scripts/"
 chmod +x "$GOOD/.cursor/hooks/scripts/"*.sh
 # cursor rules: pack-owned protocol + project-owned domain

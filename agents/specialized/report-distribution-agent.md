@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [automation-governance, reporting, ai]
 domains: [all]
 version: 1.0.0

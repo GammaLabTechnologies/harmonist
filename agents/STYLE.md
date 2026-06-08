@@ -231,7 +231,7 @@ category: <category>
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [<3–8 tags from agents/tags.json>]
 domains: [all]
 version: 1.0.0

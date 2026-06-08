@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [security, threat-modeling, architecture, web, api, authz, caching, database-design, document-generation, owasp]
 domains: [all]
 distinguishes_from: [security-reviewer, engineering-threat-detection-engineer, blockchain-security-auditor, compliance-auditor]

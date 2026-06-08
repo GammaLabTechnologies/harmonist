@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, bilibili, content-creation, strategy, brand-design, data-science, experiment-tracking, paid-audit, ux-design, infra]
 domains: [china-market]
 version: 1.0.0

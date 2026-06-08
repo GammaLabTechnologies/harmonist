@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [godot, performance, gamedev, glsl, implementation, unity, mobile, node]
 domains: [gamedev]
 distinguishes_from: [godot-gameplay-scripter, godot-multiplayer-engineer, unity-shader-graph-artist, technical-artist]

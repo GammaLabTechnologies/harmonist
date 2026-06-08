@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [backend, architecture, data-engineering, implementation, strategy, postgres, angular, node, mongodb, python]
 domains: [all]
 distinguishes_from: [engineering-backend-architect, engineering-event-driven-architect, engineering-database-optimizer]

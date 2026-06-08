@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [korean-market, strategy]
 domains: [korean-market]
 version: 1.0.0

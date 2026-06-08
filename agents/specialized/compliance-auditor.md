@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [hipaa, compliance-audit, audit, soc2, pci, authz]
 domains: [all]
 distinguishes_from: [security-reviewer, support-legal-compliance-checker, healthcare-marketing-compliance]

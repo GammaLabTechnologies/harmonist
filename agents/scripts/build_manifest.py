@@ -23,7 +23,7 @@ Coverage (what's hashed):
   - agents/SCHEMA.md, agents/TAGS.md, agents/tags.json
   - every *.md under agents/<category>/
   - every agents/scripts/*.{py,sh} (excluding generated index.json)
-  - every hooks/**/*.{json,sh}
+  - every hooks/**/*.{json,sh,py}
   - every memory/*.{py,md}
 
 Excluded (intentionally): agents/index.json (generated from agents),
@@ -98,6 +98,9 @@ INCLUDE_PATTERNS = [
     "hooks/hooks.json",
     "hooks/README.md",
     "hooks/scripts/*.sh",
+    # The cross-platform Python hook runner is installed into projects and
+    # is the active hook path on every OS, so it must be supply-chain anchored.
+    "hooks/scripts/*.py",
     "memory/*.py",
     "memory/*.md",
     "memory/README.md",

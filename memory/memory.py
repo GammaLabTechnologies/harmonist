@@ -61,6 +61,10 @@ from typing import Any
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("AWS access key id",   re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("AWS secret key",      re.compile(r"\b[0-9a-zA-Z/+]{40}\b(?=.*aws)", re.IGNORECASE)),
+    # Canonical .env / config form: AWS_SECRET_ACCESS_KEY=<40 base64 chars>.
+    # The lookahead pattern above misses this because "aws" appears BEFORE
+    # the value, not after.
+    ("AWS secret key (env)", re.compile(r"(?i)aws_secret_access_key\s*[=:]\s*[\"']?[0-9a-zA-Z/+]{40}")),
     ("GitHub PAT",          re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),
     ("GitHub fine-grained", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{22,}\b")),
     ("GitHub OAuth",        re.compile(r"\bgho_[A-Za-z0-9]{36}\b")),
@@ -220,16 +224,18 @@ def scan_for_secrets(text: str) -> list[tuple[str, str]]:
     hits: list[tuple[str, str]] = []
     seen_spans: list[tuple[int, int]] = []
     for name, pat in _SECRET_PATTERNS:
-        m = pat.search(text)
-        if not m:
-            continue
-        if _looks_like_placeholder(text, m.start(), m.end()):
-            continue
-        sample = m.group(0)
-        if len(sample) > 30:
-            sample = sample[:27] + "..."
-        hits.append((name, sample))
-        seen_spans.append((m.start(), m.end()))
+        # Scan EVERY match, not just the first: a placeholder example earlier
+        # in the text (e.g. `<AKIA...>`) must not blind the pattern to a real
+        # secret of the same shape later in the body.
+        for m in pat.finditer(text):
+            if _looks_like_placeholder(text, m.start(), m.end()):
+                continue
+            sample = m.group(0)
+            if len(sample) > 30:
+                sample = sample[:27] + "..."
+            hits.append((name, sample))
+            seen_spans.append((m.start(), m.end()))
+            break
     # Context-scoped vendor + UUID pairs.
     for name, sample in _scan_context_uuids(text):
         hits.append((name, sample))
@@ -455,8 +461,15 @@ def cmd_append(args: argparse.Namespace) -> int:
 
     # Secret scan. Memory files WILL end up checked into someone's repo by
     # accident (or shared via *.shared.md on purpose), so refuse the append
-    # if the body or summary contains a recognisable credential shape.
-    combined = f"{args.summary}\n{body}"
+    # if the body or summary contains a recognisable credential shape. Scan
+    # EVERY free-text field the user can supply -- not just summary/body --
+    # so a secret can't be smuggled in via --scope / --author-detail / --links
+    # / --tags.
+    combined = "\n".join(str(p) for p in (
+        args.summary, body, getattr(args, "scope", None),
+        getattr(args, "author_detail", None), getattr(args, "links", None),
+        getattr(args, "tags", None),
+    ) if p)
     hits = scan_for_secrets(combined)
     if hits and not getattr(args, "allow_secrets", False):
         print("error: refusing to append -- body looks like it contains secrets:",

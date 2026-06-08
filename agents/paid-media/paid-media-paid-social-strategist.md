@@ -6,7 +6,7 @@ category: paid-media
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [paid-social, linkedin, tiktok, outbound, instagram, ppc, api, strategy, infra, performance]
 domains: [all]
 version: 1.0.0

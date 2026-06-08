@@ -195,6 +195,8 @@ enforcement-hooks:
   script:
     - echo "Running enforcement-hook integration tests..."
     - bash hooks/tests/run-hook-tests.sh
+    - echo "Running git pre-commit guard tests..."
+    - bash agents/scripts/test_git_hooks.sh
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -217,3 +219,47 @@ memory-schema:
     - changes:
         - .gitlab-ci.yml
         - memory/**
+
+repomap:
+  stage: validate
+  script:
+    - echo "Testing the zero-dep repo map (build / search / explore / impact / affected)..."
+    - bash agents/scripts/test_repomap.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/scripts/repomap.py
+        - agents/scripts/test_repomap.sh
+
+hardening-checklist:
+  stage: validate
+  script:
+    - echo "Validating the security & privacy hardening checklist..."
+    - bash agents/scripts/test_checklist.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - playbooks/checklists/**
+        - agents/scripts/test_checklist.sh
+
+cross-platform:
+  stage: validate
+  script:
+    - echo "OS-agnostic install-path regression (convert / install / hooks render / repomap / e2e smoke)..."
+    - python3 agents/scripts/test_cross_platform.py -v
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - .gitlab-ci.yml
+        - agents/scripts/convert.py
+        - agents/scripts/install.py
+        - agents/scripts/upgrade.py
+        - agents/scripts/repomap.py
+        - agents/scripts/smoke_test.py
+        - agents/scripts/test_cross_platform.py
+        - hooks/**

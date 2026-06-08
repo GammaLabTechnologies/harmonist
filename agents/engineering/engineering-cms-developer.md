@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [architecture, cms, drupal, accessibility-testing, wordpress, implementation, api, php, node, a11y]
 domains: [all]
 version: 1.0.0

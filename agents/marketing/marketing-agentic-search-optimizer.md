@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [ai, growth, web, aeo, mcp, ux-design, implementation, audit, javascript, template]
 domains: [all]
 distinguishes_from: [marketing-seo-specialist, marketing-ai-citation-strategist, marketing-content-creator]

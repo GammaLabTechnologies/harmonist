@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, instagram, brand-design, content-creation, tracking, visual-storytelling, strategy, observability, performance]
 domains: [all]
 version: 1.0.0

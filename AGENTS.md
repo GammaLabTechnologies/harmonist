@@ -141,7 +141,7 @@ fails if this table drifts from the index):
 | Category | Role | Protocol | Count |
 |----------|------|----------|-------|
 | `orchestration` | Scout before implementation, map files to agents | strict | 2 |
-| `review` | Readonly reviewers (security, quality, QA, SRE, regression) | strict | 6 |
+| `review` | Readonly reviewers (security, quality, QA, SRE, regression, a11y) | strict | 6 |
 | `engineering` | Backend, frontend, DevOps, data, embedded, AI engineering | persona | 46 |
 | `design` | UI/UX, brand, accessibility, visual | persona | 8 |
 | `testing` | QA, performance, API testing, evidence | persona | 8 |
@@ -155,7 +155,7 @@ fails if this table drifts from the index):
 | `academic` | Research, psychology, history | persona | 5 |
 | `game-development` | Unity, Unreal, Godot, Roblox, Blender | persona | 20 |
 | `spatial-computing` | XR, visionOS, WebXR | persona | 6 |
-| `specialized` | Blockchain, MCP, Salesforce, ZK, niche | persona | 17 |
+| `specialized` | Blockchain, MCP, Salesforce, ZK, authorized security, privacy, niche | persona | 24 |
 
 ---
 
@@ -282,6 +282,7 @@ any write agent         →  category:review tag:qa
 category:review tag:security  →  runs before tag:qa when the trigger table fires
 category:review tag:performance → runs before tag:qa on DB/infra changes
 category:review tag:review (code quality) → runs before tag:qa on async/logic changes
+category:review tag:a11y (wcag-a11y-gate) → runs before tag:qa on UI / form / modal / navigation changes
 ```
 
 Rules:
@@ -337,6 +338,29 @@ endpoints, edge cases, and breaking-change risk.
 Without the marker, the hook cannot credit the reviewer and the stop
 gate will treat the reviewer as "not invoked".
 
+### Handoff package (treat the subagent as a colleague who just walked in)
+
+A subagent does **not** see this conversation — only the text you pass it.
+A marker-only or vague delegation makes it guess and redo work you already
+did. Every `task` prompt MUST carry a complete handoff:
+
+- **Context preamble** — the `PROJECT PRECEDENCE` block (invariants + modules
+  + platform), produced by `harmonist/agents/scripts/project_context.py`.
+- **Target / scope** — the concrete files / module / endpoint, and any
+  boundary it must stay inside.
+- **Single sub-goal** — exactly one deliverable for this dispatch.
+- **Constraints** — what NOT to do, which tools/evidence to use.
+- **Success criteria** — what the returned result must contain to be "done".
+
+Two more rules:
+
+- **No nested delegation.** A subagent must NOT call `task` itself —
+  delegation chains explode context and cost. Subagents do the work and
+  return; the orchestrator re-delegates if needed.
+- This is mechanically enforceable: set `require_delegation_context: true`
+  in `.cursor/hooks/config.json` and the `subagentStart` hook DENIES a
+  delegation whose handoff is below `min_delegation_chars`.
+
 ### What the stop gate checks
 
 If the session touched any file outside the ignored patterns:
@@ -377,6 +401,10 @@ The hook logs the skip and allows completion. Abuse is detectable in
 1. Read `.cursor/memory/session-handoff.md`.
 2. Load `harmonist/agents/index.json` and retain the agent pool in context.
 3. Run `repo-scout` when file scope is unclear — map files, tests, invariants.
+   The scout queries the local **repo map** (`.cursor/repomap/repomap.py`:
+   `explore` / `search` / `dependents` / `impact` / `affected`) instead of
+   grepping — fewer tool calls, accurate upstream/downstream + blast radius.
+   If a hook banner says the map is stale, refresh it first.
 4. State the plan. List selected agents, order, and dependencies.
 5. Assign a **correlation ID** for this task (e.g. `fix-modal-close-2026-04`) —
    use it in all memory entries.
@@ -461,7 +489,7 @@ commit. NEVER write raw secrets — use `<PLACEHOLDER>` instead.
 | External APIs | Exponential backoff with jitter: 1s → 2s → 4s, max 30s. Fail after 3 retries. |
 | Deploys | Verify health post-restart. No response in 30s → check logs. |
 | DB migrations | Can lock tables. Plan maintenance window for large ALTERs. Forward-only — no DROP in rollback. |
-| Parallel agents | Max 3 concurrent. Sequential for dependent tasks. |
+| Parallel agents | Max 3 concurrent — **mechanically enforced** by the `subagentStart` hook (`max_concurrent_subagents`, default 3, in `.cursor/hooks/config.json`). A launch beyond the cap is DENIED, so unbounded fan-out cannot exhaust memory. Run dependent tasks sequentially; raise the cap only if the machine has the RAM. |
 | Rate limits (429) | Back off immediately. Do not retry faster than the limit allows. |
 | Circuit breaker | After 5 consecutive failures to same service → stop calling for 60s → retry once → if OK, resume. |
 
@@ -523,6 +551,15 @@ Phase 6  Operate       →  maintain + scale
 
 Entry points: `playbooks/QUICKSTART.md`, `playbooks/nexus-strategy.md`,
 `playbooks/playbooks/phase-*.md`, `playbooks/runbooks/scenario-*.md`.
+
+### Skills (reusable task playbooks)
+
+`playbooks/skills/*.md` are small, on-demand recipes for recurring tasks —
+*how* to do one job well (e.g. `secure-code-review`, `authorized-web-pentest`,
+`incident-response`, `dependency-vulnerability-remediation`). When a task
+matches one, follow its method and return its declared output instead of
+improvising. They are content, not agents — add new ones freely
+(`playbooks/skills/README.md`).
 
 ---
 

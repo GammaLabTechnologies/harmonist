@@ -315,6 +315,41 @@ def step_6_memory_bootstrap(pack: Path, project: Path, apply: bool) -> Step:
     return s
 
 
+def step_9_repomap(pack: Path, project: Path, apply: bool) -> Step:
+    """Build the local repo map (symbols + import graph) so repo-scout can
+    query it instead of grepping. Non-fatal: an enhancement, never blocks
+    integration."""
+    s = Step("repo-map")
+    repomap = project / ".cursor" / "repomap" / "repomap.py"
+    if not repomap.exists():
+        s.status = "skipped"
+        s.message = ("repomap.py not installed (run upgrade.py --apply); "
+                     "repo map is optional")
+        return s
+    if not apply:
+        s.status = "skipped"
+        s.message = "would build the repo map (dry-run)"
+        return s
+    r = _py(repomap, "build", "--project", str(project), "--json", capture=True)
+    if r.returncode == 0:
+        s.status = "ok"
+        try:
+            data = json.loads(r.stdout)
+            s.message = (f"indexed {data.get('files', '?')} files, "
+                         f"{data.get('symbols', '?')} symbols, "
+                         f"{data.get('edges', '?')} import edges")
+        except Exception:
+            s.message = "repo map built"
+        return s
+    # Non-fatal: report as skipped so integration isn't marked failed.
+    s.status = "skipped"
+    s.message = (f"repo map build did not complete (exit {r.returncode}); "
+                 "optional — build later with: "
+                 "python3 .cursor/repomap/repomap.py build")
+    s.detail = {"stderr": r.stderr[-300:] if r.stderr else ""}
+    return s
+
+
 def step_7_smoke(pack: Path, project: Path, apply: bool, skip: bool) -> Step:
     s = Step("smoke-test")
     if skip or not apply:
@@ -347,8 +382,10 @@ def step_8_verify(pack: Path, project: Path, apply: bool) -> Step:
     try:
         data = json.loads(r.stdout or "{}")
         summary = data.get("summary", {})
-        err = int(summary.get("error", 0))
-        warn = int(summary.get("warning", 0))
+        # verify_integration emits plural keys: errors / warnings. (Reading
+        # the singular forms always yielded 0, so the report under-counted.)
+        err = int(summary.get("errors", summary.get("error", 0)))
+        warn = int(summary.get("warnings", summary.get("warning", 0)))
     except Exception:
         err = 1 if r.returncode else 0
         warn = 0
@@ -442,6 +479,7 @@ def main(argv: list[str]) -> int:
     steps.append(step_3_bg_regression(pack, project, apply))
     steps.append(step_5_rules(pack, project, apply))
     steps.append(step_6_memory_bootstrap(pack, project, apply))
+    steps.append(step_9_repomap(pack, project, apply))
     steps.append(step_7_smoke(pack, project, apply, args.skip_smoke))
     steps.append(step_8_verify(pack, project, apply))
 

@@ -42,7 +42,7 @@ Every field below is mandatory. Missing any → lint error.
 | `protocol` | enum | `strict` \| `persona` | How the agent behaves (see "Protocol" section). |
 | `readonly` | bool | `true` \| `false` | `true` = reviewer/scout, cannot edit files. `false` = write agent. |
 | `is_background` | bool | `true` \| `false` | `true` = long-running (tests, lint, builds). Default `false`. |
-| `model` | enum | `fast` \| `inherit` \| `reasoning` | Which model tier the host should use. See "Model tiers" below. |
+| `model` | string | a Cursor model slug, e.g. `claude-opus-4-8` | Concrete model the dispatched subagent runs on. Defaults to the strongest model. See "Model" below. |
 | `tags` | list[string] | lowercase kebab | Searchable labels used by `index.json` for task-to-agent matching. |
 
 ### Slug — identity key (derived, not frontmatter)
@@ -135,33 +135,38 @@ orchestrator.
 
 ---
 
-## Model tiers
+## Model
 
-`model:` is a three-valued enum that tells the host which model class to
-route the agent through. Setting it wrong wastes money OR loses quality;
-the migrator chooses defaults per category and hard-overrides a list of
-protocol-critical agents.
+`model:` is a concrete Cursor model slug that the dispatched subagent runs
+on. Every agent is pinned to the **strongest** model by default
+(`DEFAULT_MODEL` in `scripts/migrate_schema.py`, currently
+`claude-opus-4-8` — Claude Opus 4.8) so a subagent never silently falls
+back to the host default ("Composer"). The aim is best results across the
+board; the model is cheap relative to a wrong audit or a shipped bug.
 
-| Tier | When | Typical slots |
-|------|------|---------------|
-| `fast` | Mechanical, narrow tasks where a smaller model is sufficient. | `repo-scout`, `bg-regression-runner`, content generators, short-form copy, prompt engineering. |
-| `inherit` | The task size varies wildly — match whatever the host session is already using. | Most write agents; sensible default. |
-| `reasoning` | Deep analysis / decisions / audits where getting it wrong costs real money. | All strict reviewers (`security-reviewer`, `code-quality-auditor`, `qa-verifier`, `sre-observability`), architects, auditors, threat modellers, deep marketing strategists. |
+> **Max Mode / 1M context is a global Cursor toggle, not a model slug.**
+> The `model:` field selects the model family/version; to get the
+> 1M-token context window and "Max" behaviour, enable **Max Mode** in
+> Cursor's settings. On legacy request-based plans without Max Mode,
+> Cursor may force Composer regardless of this field.
 
-### How tiers are assigned
+### How the model is assigned
 
 1. **`FIXED_MODELS` in `scripts/migrate_schema.py`** — per-agent hard
-   override. Reserved for strict protocol agents and hand-curated
-   exceptions (e.g. `marketing-growth-hacker` is `reasoning` even though
-   its category default is `fast`).
-2. **`PER_CATEGORY_MODEL`** — category-level default. Applied when there
-   is no per-agent override.
-3. **Existing explicit value** — if an agent file already declares a
-   non-`inherit` model (legacy or hand-curated), it is preserved.
-4. **Fallback** — `inherit`.
+   override. Empty by default; add an entry only if a specific agent is
+   genuinely better on a different concrete slug (e.g. a cheaper
+   `claude-opus-4-8-fast` for a very high-volume mechanical agent).
+2. **Existing explicit concrete model** — if an agent file already
+   declares a slug from `CONCRETE_MODELS`, it is preserved (respects
+   hand-curation).
+3. **Fallback** — `DEFAULT_MODEL`. The legacy tier words
+   (`fast` / `inherit` / `reasoning`) are still *accepted* by the linter
+   for backwards compatibility but the migrator upgrades them to
+   `DEFAULT_MODEL`.
 
-Add a tag or change a default only when the new default would genuinely
-apply to every agent in the category, not to pacify one outlier.
+Accepted values (`MODEL_TIERS`): the concrete slugs in `CONCRETE_MODELS`
+(`claude-opus-4-8`, `claude-opus-4-8-fast`) plus the legacy tiers. Pin a
+new real model by adding its slug to `CONCRETE_MODELS`.
 
 ## Protocol values
 
@@ -172,7 +177,8 @@ Reserved for agents that participate in the orchestration contract:
 - Mandatory review-gate semantics (e.g. `qa-verifier` must run before "done").
 - Short, reference-style prompts — no flavor text.
 - `readonly: true` in almost all cases (reviewers and scouts).
-- Model tier often matters (`fast` for scouts, `reasoning` for audits).
+- Runs on the strongest model by default (see "Model"); reviewers and
+  audits especially benefit from it.
 
 Examples: `repo-scout`, `security-reviewer`, `qa-verifier`, `sre-observability`,
 `code-quality-auditor`, `bg-regression-runner`.
@@ -272,7 +278,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [security, owasp, secrets, auth, review]
 domains: [all]
 ---
@@ -294,7 +300,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [security, threat-modeling, vulnerability-assessment, code-review, audit]
 domains: [all]
 color: red

@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [healthcare, privacy, audit, authz, ui-design, education, security, wechat, xiaohongshu, infra]
 domains: [china-market, healthcare]
 distinguishes_from: [agentic-identity-trust, government-digital-presales-consultant, support-legal-compliance-checker]

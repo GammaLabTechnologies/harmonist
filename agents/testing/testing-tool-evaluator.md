@@ -6,7 +6,7 @@ category: testing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [data-science, performance-testing, ux-design, ux-research, performance, implementation, security, observability, api, qa]
 domains: [all]
 version: 1.0.0

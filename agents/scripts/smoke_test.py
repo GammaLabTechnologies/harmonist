@@ -77,12 +77,29 @@ class Scenario:
         return all(s.passed for s in self.steps)
 
 
+# The smoke test drives the SAME cross-platform Python runner that the
+# installed hooks.json invokes (hook_runner.py), not the POSIX .sh
+# scripts. That keeps the test meaningful on native Windows (no bash) and
+# verifies the path Cursor actually executes. Legacy .sh script names are
+# mapped to their hook phase so call sites read unchanged.
+_PHASE_FOR_SCRIPT = {
+    "seed-session.sh": "sessionStart",
+    "record-write.sh": "afterFileEdit",
+    "record-subagent-start.sh": "subagentStart",
+    "record-subagent-stop.sh": "subagentStop",
+    "gate-stop.sh": "stop",
+}
+
+
 def _run_hook(project: Path, script: str, stdin_json: str) -> subprocess.CompletedProcess:
-    path = project / ".cursor" / "hooks" / "scripts" / script
-    if not path.exists():
-        raise FileNotFoundError(path)
+    runner = project / ".cursor" / "hooks" / "scripts" / "hook_runner.py"
+    if not runner.exists():
+        raise FileNotFoundError(runner)
+    phase = _PHASE_FOR_SCRIPT.get(script)
+    if phase is None:
+        raise ValueError(f"unknown hook script {script!r}")
     return subprocess.run(
-        ["bash", str(path)], input=stdin_json,
+        [sys.executable, str(runner), phase], input=stdin_json,
         capture_output=True, text=True, cwd=str(project), check=False,
     )
 
@@ -108,13 +125,11 @@ def _reset_state(project: Path) -> None:
 
 
 def _preflight(project: Path) -> tuple[bool, list[str]]:
-    """Return (ok, missing). Bail early if the install is incomplete."""
+    """Return (ok, missing). Bail early if the install is incomplete.
+    Checks the cross-platform runner (hook_runner.py) + memory CLI --
+    the pieces every OS needs for the active hook path."""
     required = [
-        project / ".cursor" / "hooks" / "scripts" / "seed-session.sh",
-        project / ".cursor" / "hooks" / "scripts" / "record-write.sh",
-        project / ".cursor" / "hooks" / "scripts" / "record-subagent-start.sh",
-        project / ".cursor" / "hooks" / "scripts" / "record-subagent-stop.sh",
-        project / ".cursor" / "hooks" / "scripts" / "gate-stop.sh",
+        project / ".cursor" / "hooks" / "scripts" / "hook_runner.py",
         project / ".cursor" / "memory" / "memory.py",
     ]
     missing = [str(p) for p in required if not p.exists()]
@@ -133,8 +148,11 @@ def scenario_happy(project: Path) -> Scenario:
         "state.session_id present" if state.get("session_id") else "no session.json after seed",
     ))
 
-    # 2. afterFileEdit on a sentinel path in /tmp (not in skip_path_patterns)
-    sentinel = "/tmp/asp-smoke-sentinel.py"
+    # 2. afterFileEdit on a sentinel code path (not in skip_path_patterns,
+    #    not "trivial"). Kept inside the project so it's cross-platform --
+    #    no reliance on a POSIX /tmp. The file is never created; only its
+    #    path string is recorded.
+    sentinel = str(project / "asp-smoke-sentinel.py")
     _run_hook(project, "record-write.sh", json.dumps({"file_path": sentinel}))
     state = _load_state(project)
     writes = state.get("writes") or []
@@ -165,7 +183,7 @@ def scenario_happy(project: Path) -> Scenario:
     # same summary; the dedupe guard would block the test otherwise.
     memory_cli = project / ".cursor" / "memory" / "memory.py"
     rc = subprocess.run(
-        ["python3", str(memory_cli), "append",
+        [sys.executable, str(memory_cli), "append",
          "--file", "session-handoff", "--kind", "state", "--status", "done",
          "--summary", "smoke-test: hooks pipeline fires end-to-end",
          "--allow-duplicate",
@@ -213,7 +231,7 @@ def scenario_negative(project: Path) -> Scenario:
     s = Scenario("negative-path-gate-bites")
     _reset_state(project)
     _run_hook(project, "seed-session.sh", "{}")
-    sentinel = "/tmp/asp-smoke-sentinel-2.py"
+    sentinel = str(project / "asp-smoke-sentinel-2.py")
     _run_hook(project, "record-write.sh", json.dumps({"file_path": sentinel}))
     # deliberately skip reviewer + memory
     out = _run_hook(project, "gate-stop.sh", "{}")

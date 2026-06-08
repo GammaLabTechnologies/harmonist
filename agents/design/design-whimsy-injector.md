@@ -6,7 +6,7 @@ category: design
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [design, whimsy, ux-design, architecture, community-building, a11y, implementation]
 domains: [all]
 version: 1.0.0

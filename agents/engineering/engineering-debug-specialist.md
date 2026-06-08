@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [observability, performance, backend, implementation, audit, incident-response, regression]
 domains: [all]
 distinguishes_from: [engineering-incident-response-commander, engineering-sre, engineering-opentelemetry-lead]

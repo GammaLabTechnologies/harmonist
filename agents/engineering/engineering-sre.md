@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [sre, observability, reliability, ux-design]
 domains: [all]
 distinguishes_from: [engineering-incident-response-commander, engineering-data-engineer, sre-observability]

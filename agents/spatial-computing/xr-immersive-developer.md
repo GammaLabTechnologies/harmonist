@@ -6,7 +6,7 @@ category: spatial-computing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [xr, webxr, ar, vr, visionos]
 domains: [xr]
 version: 1.0.0

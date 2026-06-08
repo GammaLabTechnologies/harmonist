@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, youtube, experiment-tracking, strategy, seo]
 domains: [all]
 version: 1.0.0

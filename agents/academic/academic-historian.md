@@ -6,7 +6,7 @@ category: academic
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [academic, historical-analysis]
 domains: [academic]
 version: 1.0.0

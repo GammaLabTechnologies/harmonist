@@ -167,18 +167,38 @@ state_update() {
     python3 - <<'PY'
 import json, os, tempfile, pathlib
 state_path = pathlib.Path(os.environ["STATE_FILE_PATH"])
-STATE = json.loads(state_path.read_text())
-CFG = json.loads(os.environ.get("CFG_JSON", "{}"))
-STDIN_JSON = os.environ.get("STDIN_JSON", "")
+# Serialize the whole read-modify-write across concurrent hook processes so a
+# parallel afterFileEdit / subagentStart can't lose an update (last-writer-wins
+# would silently drop a recorded write and fail the gate OPEN). Advisory
+# fcntl lock on a sidecar .lock; best-effort (proceed if unavailable).
+_lock = None
 try:
-    INPUT = json.loads(STDIN_JSON) if STDIN_JSON else {}
+    import fcntl
+    _lock = open(str(state_path) + ".lock", "a+")
+    fcntl.flock(_lock.fileno(), fcntl.LOCK_EX)
 except Exception:
-    INPUT = {}
-exec(os.environ.get("SCRIPT", ""), {"STATE": STATE, "CFG": CFG, "INPUT": INPUT, "json": json})
-tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=state_path.parent)
-json.dump(STATE, tmp, indent=2)
-tmp.close()
-os.replace(tmp.name, state_path)
+    _lock = None
+try:
+    STATE = json.loads(state_path.read_text())
+    CFG = json.loads(os.environ.get("CFG_JSON", "{}"))
+    STDIN_JSON = os.environ.get("STDIN_JSON", "")
+    try:
+        INPUT = json.loads(STDIN_JSON) if STDIN_JSON else {}
+    except Exception:
+        INPUT = {}
+    exec(os.environ.get("SCRIPT", ""), {"STATE": STATE, "CFG": CFG, "INPUT": INPUT, "json": json})
+    tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=state_path.parent)
+    json.dump(STATE, tmp, indent=2)
+    tmp.close()
+    os.replace(tmp.name, state_path)
+finally:
+    if _lock is not None:
+        try:
+            import fcntl
+            fcntl.flock(_lock.fileno(), fcntl.LOCK_UN)
+        except Exception:
+            pass
+        _lock.close()
 PY
 }
 
@@ -213,6 +233,7 @@ DEFAULT = {
         "code-quality-auditor",
         "sre-observability",
         "bg-regression-runner",
+        "wcag-a11y-gate",
     ],
     "required_reviewer_slug": "qa-verifier",
     # Real CI-runner gate. When enabled, the stop hook also checks
@@ -240,9 +261,29 @@ DEFAULT = {
         r"(?i)(^|/)\.editorconfig$",
         r"(?i)(^|/)\.prettier(rc|ignore)[\-.]?",
         r"(?i)(^|/)\.eslint(rc|ignore)[\-.]?",
-        r"(?i)docs/",
-        r"(?i)documentation/",
+        # docs/ only trivial for doc/asset content, not code under it
+        # (a bare `docs/` substring let docs/conf.py skip the gate).
+        r"(?i)(^|/)docs/.*\.(?:md|mdx|rst|txt|adoc|markdown|png|jpe?g|gif|svg|webp|ico|pdf)$",
+        r"(?i)(^|/)documentation/.*\.(?:md|mdx|rst|txt|adoc|markdown|png|jpe?g|gif|svg|webp|ico|pdf)$",
     ],
+    # Mechanical cap on concurrently-running subagents within one task.
+    # The subagentStart hook denies a launch once this many are open.
+    # 0 (or negative) disables the cap. Mirrors hook_runner.py.
+    "max_concurrent_subagents": 3,
+    # Open subagents older than this (no observed stop) are treated as
+    # finished for the count, so a missed stop can't lock out new launches.
+    "subagent_stale_seconds": 900,
+    # Impact-aware gate + repo-map staleness banner. The .sh gate path does
+    # not implement these (the Python hook_runner is the active path); the
+    # keys live here so config overrides validate cleanly.
+    "require_affected_tests": False,
+    "repomap_staleness_warn": True,
+    "require_delegation_context": False,
+    "min_delegation_chars": 80,
+    # HITL on dangerous shell commands (handled by the Python hook runner's
+    # beforeShellExecution phase). Keys live here so config overrides validate.
+    "hitl_enabled": True,
+    "dangerous_command_action": "ask",
 }
 cfg_path = pathlib.Path(os.environ.get("CFG_FILE_PATH", ""))
 if cfg_path.exists():
@@ -351,5 +392,16 @@ emit_additional_context() {
   MSG="$msg" python3 - <<'PY'
 import json, os
 print(json.dumps({"additional_context": os.environ.get("MSG", "")}))
+PY
+}
+
+# emit_deny <message> — block the pending action (e.g. a subagent launch).
+# Per Cursor's hook contract, subagentStart honours {"permission": "deny"}.
+emit_deny() {
+  local msg="${1:-}"
+  MSG="$msg" python3 - <<'PY'
+import json, os
+m = os.environ.get("MSG", "")
+print(json.dumps({"permission": "deny", "user_message": m, "agent_message": m}))
 PY
 }

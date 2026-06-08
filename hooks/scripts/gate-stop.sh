@@ -22,15 +22,27 @@ set -euo pipefail
 read_stdin
 state_init
 
-# Record any PROTOCOL-SKIP marker from the agent's final message BEFORE the
-# main python helper reads state.
+# Record any PROTOCOL-SKIP marker from the agent's FINAL MESSAGE fields only.
+# Scanning the whole serialized input would match the seed/followup template
+# ("PROTOCOL-SKIP: <one-line reason>") echoed back in context and fail OPEN.
 state_update '
 import re
-blob = json.dumps(INPUT) if INPUT else ""
-m = re.search(r"PROTOCOL-SKIP:\s*([^\n\r\"]+)", blob)
-if m:
+text = ""
+for k in ("response", "final_message", "assistant_message", "message",
+          "text", "content", "output", "last_message"):
+    v = INPUT.get(k)
+    if isinstance(v, str) and v:
+        text += v + "\n"
+reason = None
+for m in re.finditer(r"PROTOCOL-SKIP:\s*([^\n\r\"]+)", text):
+    r = m.group(1).strip()
+    if r.startswith("<"):  # the instruction template, not a real skip
+        continue
+    reason = r
+    break
+if reason:
     STATE["protocol_skipped"] = True
-    STATE["protocol_skip_reason"] = m.group(1).strip()
+    STATE["protocol_skip_reason"] = reason
 '
 
 MEMORY_CLI="$(memory_cli_path)"
@@ -340,12 +352,20 @@ if cfg.get("require_session_handoff_update", True):
 if memory_cli and memory_updates:
     validator = pathlib.Path(memory_cli).with_name("validate.py")
     if validator.exists():
-        rc = subprocess.run(
-            ["python3", str(validator), "--strict", "--quiet"],
-            capture_output=True, text=True,
-        )
-        if rc.returncode != 0:
-            missing.append("memory files failed schema validation:\n" + rc.stderr.strip())
+        try:
+            rc = subprocess.run(
+                [sys.executable, str(validator), "--strict", "--quiet"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if rc.returncode != 0:
+                missing.append("memory files failed schema validation:\n" + rc.stderr.strip())
+        except subprocess.TimeoutExpired:
+            # Fail CLOSED: a hung validator must not let the gate pass.
+            missing.append("memory schema validation timed out (>30s); "
+                           "treating as NOT validated.")
+        except Exception as _e:
+            missing.append("memory schema validation could not run "
+                           "(" + _e.__class__.__name__ + "); fix before finishing.")
 
 if not missing:
     emit_allow("protocol-satisfied")

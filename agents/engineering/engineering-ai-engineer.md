@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [ai, ml, data-engineering, llm, experiment-tracking, gcp, prompt-design, performance, observability, api]
 domains: [all]
 distinguishes_from: [engineering-rag-pipeline-architect, engineering-llm-evaluation-harness, engineering-inference-economics-optimizer]

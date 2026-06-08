@@ -29,6 +29,14 @@ python3 "$UPGRADE" --project "$proj" --pack "$PACK" --apply >/dev/null || true
 # Confirm we have a telemetry-clean starting point.
 [[ -d "$proj/.cursor/hooks" ]] || { echo "fatal: upgrade did not install hooks"; exit 1; }
 
+# This suite exercises telemetry COUNTING, not the concurrency cap. The
+# scenario-2 loop fires many subagentStart calls back-to-back with no
+# interleaved stops, so the default max_concurrent_subagents=3 would deny
+# most of them. Disable the cap for this fixture so every simulated call
+# is recorded (the cap itself is covered by hooks/tests/run-hook-tests.sh).
+mkdir -p "$proj/.cursor/hooks"
+echo '{"max_concurrent_subagents": 0}' > "$proj/.cursor/hooks/config.json"
+
 # ---------------------------------------------------------------------------
 # 1. Simulate 3 sessions.
 # ---------------------------------------------------------------------------

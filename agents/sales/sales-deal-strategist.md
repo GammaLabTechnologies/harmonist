@@ -6,7 +6,7 @@ category: sales
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [deal-strategy, pipeline-analysis, next, strategy, observability, security]
 domains: [all]
 distinguishes_from: [sales-pipeline-analyst, sales-coach, sales-proposal-strategist]

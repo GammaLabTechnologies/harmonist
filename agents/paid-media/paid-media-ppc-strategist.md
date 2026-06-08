@@ -6,7 +6,7 @@ category: paid-media
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [architecture, ppc, finance-tracking, strategy, api, performance]
 domains: [all]
 distinguishes_from: [paid-media-paid-social-strategist, paid-media-tracking-specialist, paid-media-search-query-analyst]

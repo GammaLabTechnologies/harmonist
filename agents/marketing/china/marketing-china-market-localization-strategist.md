@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [localization, growth, china-market, douyin, xiaohongshu, bilibili, wechat, fullstack, content-creation, customer-support]
 domains: [china-market]
 version: 1.0.0

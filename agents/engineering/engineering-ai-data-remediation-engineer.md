@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [ai, data-engineering, llm, prompt-design, serverless, audit, python, api, privacy]
 domains: [all]
 version: 1.0.0

@@ -6,7 +6,7 @@ category: finance
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [fpa, strategy, audit, data-engineering, performance, pipeline-analysis]
 domains: [all]
 distinguishes_from: [finance-financial-analyst, finance-investment-researcher, support-analytics-reporter]

@@ -412,6 +412,77 @@ set -e
 [[ "$rc" == "1" ]] && { printf "  ok    migrations.py exits 1 on unknown schema_version\n"; pass=$((pass + 1)); } \
   || { printf "  FAIL  migrations.py did not flag v99 (rc=%s)\n" "$rc"; fail=$((fail + 1)); }
 
+# ---------------------------------------------------------------------------
+
+printf "\n=== 10: secret scanner -- real secret after a placeholder is caught ===\n"
+reset
+cd "$TMP"
+# The first AKIA match is a placeholder; a real one follows. The scanner must
+# NOT stop at the first match (that was the first-match-only bug).
+set +e
+python3 "$TMP/memory.py" append \
+  --file session-handoff --kind state --status done \
+  --summary "config example" \
+  --body "## Changes
+- example key <AKIAIOSFODNN7EXAMPLE>
+- but committed AKIA1234567890ABCDEF by mistake
+
+## Open issues
+- none" >/dev/null 2>&1
+rc=$?
+set -e
+assert "real secret after placeholder is refused" "2" "$rc"
+
+printf "\n=== 11: secret scanner -- AWS .env form is caught ===\n"
+reset
+cd "$TMP"
+set +e
+python3 "$TMP/memory.py" append \
+  --file session-handoff --kind state --status done \
+  --summary "env config" \
+  --body "## Changes
+- AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+## Open issues
+- none" >/dev/null 2>&1
+rc=$?
+set -e
+assert "AWS .env secret form is refused" "2" "$rc"
+
+printf "\n=== 12: secret scanner -- secret smuggled via --scope is caught ===\n"
+reset
+cd "$TMP"
+set +e
+python3 "$TMP/memory.py" append \
+  --file session-handoff --kind state --status done \
+  --summary "scoped" \
+  --scope "AKIA1234567890ABCDEF" \
+  --body "## Changes
+- nothing sensitive in the body
+
+## Open issues
+- none" >/dev/null 2>&1
+rc=$?
+set -e
+assert "secret in --scope field is refused" "2" "$rc"
+
+# Sanity: a clean entry with placeholders only still appends.
+printf "\n=== 13: secret scanner -- placeholders alone do not block ===\n"
+reset
+cd "$TMP"
+set +e
+python3 "$TMP/memory.py" append \
+  --file session-handoff --kind state --status done \
+  --summary "placeholders only" \
+  --body "## Changes
+- set AWS_SECRET_ACCESS_KEY=\${AWS_SECRET} and token=<YOUR_TOKEN>
+
+## Open issues
+- none" >/dev/null 2>&1
+rc=$?
+set -e
+assert "placeholder-only entry still appends" "0" "$rc"
+
 printf "\n=== summary ===\n  passed: %s\n  failed: %s\n" "$pass" "$fail"
 if (( fail > 0 )); then
   for f in "${fail_list[@]}"; do printf "    - %s\n" "$f"; done

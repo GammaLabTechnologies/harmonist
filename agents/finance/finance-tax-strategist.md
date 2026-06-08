@@ -6,7 +6,7 @@ category: finance
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [tax-strategy, strategy, audit, implementation, cross-border, reporting]
 domains: [all]
 version: 1.0.0

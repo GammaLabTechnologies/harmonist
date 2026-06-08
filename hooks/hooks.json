@@ -22,6 +22,11 @@
         "command": "python3 .cursor/hooks/scripts/hook_runner.py subagentStop"
       }
     ],
+    "beforeShellExecution": [
+      {
+        "command": "python3 .cursor/hooks/scripts/hook_runner.py beforeShellExecution"
+      }
+    ],
     "stop": [
       {
         "command": "python3 .cursor/hooks/scripts/hook_runner.py stop",

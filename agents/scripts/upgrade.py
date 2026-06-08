@@ -43,7 +43,9 @@ import datetime as dt
 import difflib
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -64,6 +66,81 @@ PACK_OWNED_STRICT_SLUGS = [
     # customises the test/lint/build commands in its body. Upgrading the pack
     # must not wipe those.
 ]
+
+
+# ---------------------------------------------------------------------------
+# Cross-platform hook interpreter
+#
+# The pack's hooks.json template launches the Python runner with a bare
+# `python3`. That is correct on macOS / Linux but frequently WRONG on
+# native Windows: the python.org installer ships `python.exe` + the `py`
+# launcher, not `python3`. So we DETECT a working Python 3.9+ launcher on
+# the host OS at install time and render hooks.json with it. The runner
+# itself (hook_runner.py) is pure stdlib and identical on every OS.
+# ---------------------------------------------------------------------------
+
+HOOK_RUNNER_REL = ".cursor/hooks/scripts/hook_runner.py"
+_HOOK_INTERPRETER_CACHE: "str | None" = None
+
+
+def _probe_python(cmd: list[str]) -> bool:
+    """True if `cmd` resolves to a Python interpreter >= 3.9."""
+    exe = shutil.which(cmd[0])
+    if not exe:
+        return False
+    try:
+        probe = subprocess.run(
+            [exe, *cmd[1:], "-c",
+             "import sys;sys.exit(0 if sys.version_info>=(3,9) else 1)"],
+            capture_output=True, timeout=10,
+        )
+    except Exception:
+        return False
+    return probe.returncode == 0
+
+
+def detect_hook_interpreter() -> str:
+    """Return the command prefix (e.g. ``py -3`` or ``python3``) that the
+    installed hooks.json should use to launch the Python runner on THIS
+    host. Probes real candidates in OS-appropriate order and verifies
+    each resolves to Python 3.9+, falling back to the absolute path of
+    the interpreter running this script."""
+    global _HOOK_INTERPRETER_CACHE
+    if _HOOK_INTERPRETER_CACHE is not None:
+        return _HOOK_INTERPRETER_CACHE
+    if os.name == "nt":
+        candidates = [["py", "-3"], ["python"], ["python3"]]
+    else:
+        candidates = [["python3"], ["python"]]
+    chosen = ""
+    for cand in candidates:
+        if _probe_python(cand):
+            chosen = " ".join(cand)
+            break
+    if not chosen:
+        exe = sys.executable or "python3"
+        chosen = f'"{exe}"' if " " in exe else exe
+    _HOOK_INTERPRETER_CACHE = chosen
+    return chosen
+
+
+def render_hooks_json(pack_hooks_json: Path, interpreter: str) -> str:
+    """Render a project's .cursor/hooks.json from the pack template,
+    rewriting every hook command so it launches the Python runner with
+    `interpreter`. Preserves loop_limit and any other keys verbatim."""
+    data = json.loads(pack_hooks_json.read_text())
+    for entries in (data.get("hooks") or {}).values():
+        for entry in entries:
+            cmd = entry.get("command", "")
+            idx = cmd.find(HOOK_RUNNER_REL)
+            if idx == -1:
+                continue
+            entry["command"] = f"{interpreter} {cmd[idx:]}"
+    return json.dumps(data, indent=2) + "\n"
+
+
+def _is_hooks_json_op(op: "UpgradeOp") -> bool:
+    return op.reason == "hooks" and op.target.name == "hooks.json"
 
 
 @dataclass
@@ -141,6 +218,7 @@ GITIGNORE_LINES = [
     ".cursor/hooks/config.json.local",
     ".cursor/telemetry/",
     ".cursor/.integration-snapshots/",
+    ".cursor/repomap/*.db",
 ]
 
 
@@ -191,14 +269,21 @@ def pack_owned_plan(pack_root: Path, project_root: Path) -> list[UpgradeOp]:
         ops.append(UpgradeOp(src, tgt, reason="strict-agent"))
 
     # 2. Hook scripts + config.
+    #    hook_runner.py is the cross-platform (incl. native Windows) active
+    #    path that hooks.json invokes; the .sh scripts are the POSIX
+    #    equivalents kept for hooks.posix.json and the shell test harness.
     for rel in [
         "hooks.json",
+        "scripts/hook_runner.py",
         "scripts/lib.sh",
         "scripts/seed-session.sh",
         "scripts/record-write.sh",
         "scripts/record-subagent-start.sh",
         "scripts/record-subagent-stop.sh",
         "scripts/gate-stop.sh",
+        "scripts/gate-shell.sh",
+        "scripts/git-pre-commit.sh",
+        "scripts/install-git-hooks.sh",
     ]:
         src = pack_root / "hooks" / rel
         tgt = project_root / ".cursor" / ("hooks.json" if rel == "hooks.json" else f"hooks/{rel}")
@@ -210,6 +295,13 @@ def pack_owned_plan(pack_root: Path, project_root: Path) -> list[UpgradeOp]:
         src = pack_root / "memory" / rel
         tgt = project_root / ".cursor" / "memory" / rel
         ops.append(UpgradeOp(src, tgt, reason="memory-tooling"))
+
+    # 3b. Repo map engine (zero-dep code index). Installed alongside memory;
+    #     the index DB it builds (.cursor/repomap/graph.db) is gitignored.
+    ops.append(UpgradeOp(
+        pack_root / "agents" / "scripts" / "repomap.py",
+        project_root / ".cursor" / "repomap" / "repomap.py",
+        reason="repomap-tooling"))
 
     # 4. Pack-owned Cursor rule: protocol-enforcement.mdc. The canonical
     #    template carries a `<!-- pack-owned: protocol-enforcement v1 -->`
@@ -282,6 +374,19 @@ def plan_upgrade(pack_root: Path, project_root: Path) -> UpgradeReport:
     for op in pack_owned_plan(pack_root, project_root):
         if not op.source.exists():
             report.errors.append(f"pack source missing: {op.source}")
+            continue
+        if _is_hooks_json_op(op):
+            # hooks.json is RENDERED (interpreter rewritten for the host
+            # OS), not byte-copied -- so idempotency must compare against
+            # the rendered output, otherwise every re-apply looks dirty.
+            rendered = render_hooks_json(op.source, detect_hook_interpreter())
+            if not op.target.exists():
+                op.action = "create"
+            elif op.target.read_text() == rendered:
+                op.action = "skip"
+            else:
+                op.action = "copy"
+            report.operations.append(op)
             continue
         if not op.target.exists():
             op.action = "create"
@@ -478,7 +583,13 @@ def apply_plan(report: UpgradeReport, dry_run: bool,
                 op.action = "refused"
                 continue
         op.target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(op.source, op.target)
+        if _is_hooks_json_op(op):
+            # Render with a host-appropriate Python launcher rather than
+            # copying the pack's bare `python3` command verbatim.
+            op.target.write_text(
+                render_hooks_json(op.source, detect_hook_interpreter()))
+        else:
+            shutil.copy2(op.source, op.target)
 
     # Write .cursor/pack-manifest.json so we can detect post-install
     # drift (someone edits security-reviewer.md to weaken the gate).
@@ -599,13 +710,18 @@ def _write_installed_manifest(report: UpgradeReport, pack_root: Path,
             ).as_posix()
         except Exception:
             rel_target = op.target.name
-        try:
-            src_rel = op.source.resolve().relative_to(pack_root.resolve()).as_posix()
-            expected = manifest.get(src_rel)
-            if expected is None:
+        if _is_hooks_json_op(op):
+            # hooks.json is rendered per-host, so the source sha would be
+            # wrong. Record the sha of what actually landed on disk.
+            expected = _sha256_of(op.target)
+        else:
+            try:
+                src_rel = op.source.resolve().relative_to(pack_root.resolve()).as_posix()
+                expected = manifest.get(src_rel)
+                if expected is None:
+                    expected = _sha256_of(op.source)
+            except Exception:
                 expected = _sha256_of(op.source)
-        except Exception:
-            expected = _sha256_of(op.source)
         installed[rel_target] = expected
 
     if not installed:

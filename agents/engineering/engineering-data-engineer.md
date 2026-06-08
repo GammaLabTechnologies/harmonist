@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [data-engineering, kafka, infra, analytics-reporting, observability, architecture, azure, bootstrap, python, reliability]
 domains: [all]
 version: 1.0.0

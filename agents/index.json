@@ -2,7 +2,7 @@
   "version": "2",
   "schema": "agents/SCHEMA.md",
   "counts": {
-    "total": 186,
+    "total": 193,
     "by_category": {
       "academic": 5,
       "design": 8,
@@ -17,17 +17,17 @@
       "review": 6,
       "sales": 8,
       "spatial-computing": 6,
-      "specialized": 17,
+      "specialized": 24,
       "support": 5,
       "testing": 8
     },
     "by_protocol": {
-      "persona": 179,
+      "persona": 186,
       "strict": 7
     },
     "by_domain": {
       "academic": 5,
-      "all": 133,
+      "all": 140,
       "blockchain": 2,
       "china-market": 17,
       "education": 1,
@@ -38,9 +38,9 @@
       "korean-market": 1,
       "xr": 6
     },
-    "with_disambiguation": 115,
-    "with_version": 186,
-    "with_updated_at": 186,
+    "with_disambiguation": 122,
+    "with_version": 193,
+    "with_updated_at": 193,
     "deprecated": 0
   },
   "agents": [
@@ -52,7 +52,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "academic",
         "anthropology"
@@ -75,7 +75,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "academic",
         "architecture",
@@ -99,7 +99,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "academic",
         "historical-analysis"
@@ -122,7 +122,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "academic",
         "narratology"
@@ -145,7 +145,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "academic",
         "psychology"
@@ -168,7 +168,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "architecture",
@@ -195,7 +195,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "design",
@@ -220,7 +220,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "architecture",
@@ -245,7 +245,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "architecture",
@@ -276,7 +276,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "ai",
@@ -310,7 +310,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "design",
@@ -339,7 +339,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "ai",
@@ -367,7 +367,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "architecture",
@@ -395,7 +395,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "automation-governance",
@@ -421,7 +421,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "authz",
@@ -456,7 +456,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -486,7 +486,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -521,7 +521,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytical-db",
         "architecture",
@@ -555,7 +555,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -583,7 +583,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -618,7 +618,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "audit",
@@ -652,7 +652,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "accessibility-testing",
@@ -683,7 +683,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "performance",
         "qa",
@@ -711,7 +711,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -743,7 +743,7 @@
       "protocol": "persona",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "compliance-audit",
@@ -774,7 +774,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "architecture",
@@ -805,7 +805,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "database-design",
         "mysql",
@@ -834,7 +834,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "backend",
@@ -866,7 +866,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "authz",
@@ -897,7 +897,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -928,7 +928,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "embedded"
       ],
@@ -950,7 +950,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "backend",
@@ -983,7 +983,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "auth",
@@ -1014,7 +1014,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "observability",
         "php",
@@ -1038,7 +1038,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "accessibility-testing",
         "angular",
@@ -1069,7 +1069,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "git",
         "version-control"
@@ -1092,7 +1092,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -1125,7 +1125,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "coordination",
         "incident-response",
@@ -1154,7 +1154,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "architecture",
@@ -1187,7 +1187,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "backend",
@@ -1222,7 +1222,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "caching",
@@ -1256,7 +1256,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "angular",
         "architecture",
@@ -1291,7 +1291,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "minimal-change",
         "refactoring"
@@ -1314,7 +1314,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "android",
         "aso",
@@ -1345,7 +1345,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "architecture",
@@ -1379,7 +1379,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "architecture",
@@ -1414,7 +1414,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "auth",
@@ -1445,7 +1445,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -1481,7 +1481,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "microservices"
@@ -1507,7 +1507,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "authz",
@@ -1538,7 +1538,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "observability",
         "reliability",
@@ -1567,7 +1567,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "auth",
@@ -1595,12 +1595,13 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "ml",
         "observability",
         "product-management",
+        "red-team",
         "secrets",
         "security",
         "threat-detection"
@@ -1627,7 +1628,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -1658,7 +1659,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "caching",
         "node",
@@ -1684,7 +1685,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "document-generation",
         "node",
@@ -1708,7 +1709,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -1737,7 +1738,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "experiment-tracking",
@@ -1764,7 +1765,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "api-testing",
@@ -1795,7 +1796,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "audit",
@@ -1821,7 +1822,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ar",
         "audit",
@@ -1850,7 +1851,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "data-engineering",
@@ -1879,7 +1880,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "data-engineering",
@@ -1910,7 +1911,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "growth",
@@ -1937,7 +1938,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "cross-border",
@@ -1964,7 +1965,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "blender",
         "gamedev",
@@ -1988,7 +1989,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "game-audio",
@@ -2016,7 +2017,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "game-design",
         "gamedev",
@@ -2041,7 +2042,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -2073,7 +2074,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "gamedev",
@@ -2101,7 +2102,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "gamedev",
         "glsl",
@@ -2135,7 +2136,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "gamedev",
@@ -2159,7 +2160,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "c-cpp",
@@ -2186,7 +2187,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "blender",
         "game-design",
@@ -2212,7 +2213,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "experiment-tracking",
         "gamedev",
@@ -2239,7 +2240,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "audit",
@@ -2268,7 +2269,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "gamedev",
         "infra",
@@ -2298,7 +2299,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "event-driven",
@@ -2324,7 +2325,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "gamedev",
@@ -2350,7 +2351,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "backend",
         "frontend",
@@ -2376,7 +2377,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "brand-design",
@@ -2411,7 +2412,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -2441,7 +2442,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -2473,7 +2474,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "gamedev",
@@ -2502,7 +2503,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "blockchain",
         "gamedev",
@@ -2529,7 +2530,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "aeo",
         "ai",
@@ -2564,7 +2565,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "aeo",
         "ai",
@@ -2597,7 +2598,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "android",
         "aso",
@@ -2628,7 +2629,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "baidu",
@@ -2661,7 +2662,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "bilibili",
         "brand-design",
@@ -2692,7 +2693,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "book-authoring",
         "content-creation",
@@ -2717,7 +2718,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "data-science",
@@ -2748,7 +2749,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "customer-support",
         "data-science",
@@ -2783,7 +2784,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "bilibili",
         "china-market",
@@ -2814,7 +2815,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -2845,7 +2846,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "brand-design",
         "content-creation",
@@ -2880,7 +2881,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "douyin",
         "growth",
@@ -2907,7 +2908,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "experiment-tracking",
@@ -2932,7 +2933,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "brand-design",
         "content-creation",
@@ -2962,7 +2963,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -2997,7 +2998,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "content-creation",
@@ -3022,7 +3023,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "douyin",
@@ -3057,7 +3058,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -3090,7 +3091,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "community-building",
@@ -3125,7 +3126,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -3152,7 +3153,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "audit",
@@ -3188,7 +3189,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "bilibili",
@@ -3219,7 +3220,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "brand-design",
@@ -3250,7 +3251,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "content-creation",
         "growth",
@@ -3277,7 +3278,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -3306,7 +3307,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "experiment-tracking",
         "growth",
@@ -3332,7 +3333,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "content-creation",
@@ -3367,7 +3368,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "brand-design",
         "content-creation",
@@ -3398,7 +3399,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "community-building",
         "content-creation",
@@ -3429,7 +3430,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "growth",
         "infra",
@@ -3456,7 +3457,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "orchestration",
         "project-planning",
@@ -3484,7 +3485,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "orchestration",
@@ -3508,7 +3509,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "paid-audit",
@@ -3535,7 +3536,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "content-creation",
         "experiment-tracking",
@@ -3562,7 +3563,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "infra",
@@ -3593,7 +3594,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -3624,7 +3625,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ppc",
         "programmatic",
@@ -3648,7 +3649,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "performance",
@@ -3673,7 +3674,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "architecture",
@@ -3703,7 +3704,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "behavioral-design",
         "psychology"
@@ -3726,7 +3727,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "experiment-tracking",
@@ -3755,7 +3756,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "next",
@@ -3784,7 +3785,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "coordination",
         "experiment-tracking",
@@ -3812,7 +3813,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "growth",
@@ -3843,7 +3844,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "experiment-tracking",
@@ -3874,7 +3875,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "auth",
@@ -3905,7 +3906,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "implementation",
@@ -3935,7 +3936,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "coordination",
         "project-planning",
@@ -3960,7 +3961,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "coordination",
         "finops",
@@ -3987,7 +3988,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "brand-design",
         "content-creation",
@@ -4017,7 +4018,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "automation-governance",
@@ -4051,7 +4052,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": true,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "qa",
         "regression",
@@ -4079,7 +4080,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "audit",
@@ -4108,7 +4109,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "evidence-collection",
         "qa",
@@ -4138,7 +4139,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "auth",
@@ -4172,7 +4173,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "caching",
         "database-design",
@@ -4206,7 +4207,7 @@
       "protocol": "strict",
       "readonly": true,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "audit",
@@ -4238,7 +4239,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "account-expansion",
         "growth",
@@ -4266,7 +4267,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "coaching",
         "deal-strategy",
@@ -4294,7 +4295,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "deal-strategy",
         "next",
@@ -4325,7 +4326,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "discovery-selling",
         "next"
@@ -4348,7 +4349,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "implementation",
@@ -4377,7 +4378,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "linkedin",
         "outbound"
@@ -4400,7 +4401,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "coaching",
@@ -4429,7 +4430,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "observability",
@@ -4454,7 +4455,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "game-audio",
         "metal",
@@ -4483,7 +4484,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "api",
@@ -4509,7 +4510,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "implementation",
         "swift",
@@ -4539,7 +4540,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "cockpit",
         "xr"
@@ -4562,7 +4563,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ar",
         "visionos",
@@ -4588,7 +4589,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ar",
         "ui-design",
@@ -4614,7 +4615,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "audit",
@@ -4645,7 +4646,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "authz",
@@ -4676,7 +4677,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "infra",
@@ -4710,7 +4711,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "authz",
@@ -4742,7 +4743,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "authz",
@@ -4778,7 +4779,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "api",
@@ -4798,6 +4799,36 @@
       "path": "agents/specialized/identity-graph-operator.md"
     },
     {
+      "slug": "privacy-engineer",
+      "name": "privacy-engineer",
+      "description": "Privacy-by-design and data-protection engineering — data mapping, minimization, consent, retention/deletion, and GDPR/CCPA-aligned handling of PII in the products you build. Use when a feature touches personal data, tracking/telemetry, or regulated user information.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "compliance-audit",
+        "data-protection",
+        "privacy",
+        "security"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "compliance-auditor",
+        "engineering-security-engineer",
+        "healthcare-marketing-compliance",
+        "support-legal-compliance-checker"
+      ],
+      "disambiguation": "Designs privacy/data-protection INTO the product (data flows, minimization, consent, retention, GDPR/CCPA). For framework/control compliance audits use compliance-auditor; for general appsec hardening use engineering-security-engineer.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/privacy-engineer.md"
+    },
+    {
       "slug": "recruitment-specialist",
       "name": "Recruitment Specialist",
       "description": "Expert recruitment operations and talent acquisition specialist — skilled in China's major hiring platforms, talent assessment frameworks, and labor law compliance. Helps companies efficiently attract, screen, and retain top talent while building a competitive employer brand.",
@@ -4805,7 +4836,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "content-creation",
@@ -4839,7 +4870,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "automation-governance",
@@ -4863,7 +4894,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "data-engineering",
@@ -4881,6 +4912,182 @@
       "path": "agents/specialized/sales-data-extraction-agent.md"
     },
     {
+      "slug": "security-exploit-developer",
+      "name": "security-exploit-developer",
+      "description": "Develops minimal proof-of-concept exploits for CONFIRMED vulnerabilities in AUTHORIZED engagements, to demonstrate real impact for a report. Use after a vulnerability is found to build a safe, reproducible PoC — not to weaponize against third parties.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "exploit-development",
+        "penetration-testing",
+        "security",
+        "vulnerability-assessment"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "blockchain-security-auditor",
+        "security-red-team-operator",
+        "security-web-app-pentester"
+      ],
+      "disambiguation": "Builds a minimal PoC for an already-confirmed vuln to prove impact in an authorized test. For finding web vulns use security-web-app-pentester; for smart-contract exploit classes use blockchain-security-auditor.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-exploit-developer.md"
+    },
+    {
+      "slug": "security-pentest-report-writer",
+      "name": "security-pentest-report-writer",
+      "description": "Turns confirmed security findings into a clear, actionable penetration-test report — executive summary, per-finding detail with evidence and severity, and prioritized remediation. Use at the end of an engagement to produce the deliverable.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "audit",
+        "security",
+        "technical-writing",
+        "vulnerability-assessment"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "engineering-technical-writer",
+        "security-vulnerability-triage",
+        "security-web-app-pentester"
+      ],
+      "disambiguation": "Writes the engagement deliverable (exec summary + findings + remediation) from confirmed results. For general developer docs use engineering-technical-writer; for ranking/validating the findings first use security-vulnerability-triage.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-pentest-report-writer.md"
+    },
+    {
+      "slug": "security-recon-mapper",
+      "name": "security-recon-mapper",
+      "description": "Reconnaissance and attack-surface mapping for AUTHORIZED security engagements. Enumerates assets, endpoints, services, and tech stack within an explicit scope. Use at the start of a sanctioned pentest to map what exists before any testing.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "penetration-testing",
+        "reconnaissance",
+        "security",
+        "threat-modeling"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "engineering-threat-detection-engineer",
+        "repo-scout",
+        "security-web-app-pentester"
+      ],
+      "disambiguation": "Maps the attack surface (assets, endpoints, services, stack) for an authorized engagement. For codebase file/symbol mapping use repo-scout; for actually testing web findings use security-web-app-pentester.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-recon-mapper.md"
+    },
+    {
+      "slug": "security-red-team-operator",
+      "name": "security-red-team-operator",
+      "description": "Plans and reasons about post-exploitation, lateral movement, privilege escalation, and persistence for AUTHORIZED red-team engagements — to measure blast radius and detection. Use to model what an attacker could reach next, within a sanctioned scope and rules of engagement.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "penetration-testing",
+        "post-exploitation",
+        "red-team",
+        "security"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "engineering-incident-response-commander",
+        "security-exploit-developer",
+        "security-web-app-pentester"
+      ],
+      "disambiguation": "Models post-exploitation reach (lateral movement, priv-esc, persistence) for an authorized red-team. For initial web exploitation use security-web-app-pentester; for the defensive/IR side use engineering-incident-response-commander.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-red-team-operator.md"
+    },
+    {
+      "slug": "security-vulnerability-triage",
+      "name": "security-vulnerability-triage",
+      "description": "Triage, validate, de-duplicate, and prioritize security findings. Confirms reproducibility, assigns severity (CVSS-style), filters false positives, and orders remediation by real risk. Use to turn raw findings/scanner output into an actionable, ranked list.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "audit",
+        "security",
+        "vulnerability-assessment"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "compliance-auditor",
+        "qa-verifier",
+        "security-reviewer",
+        "security-web-app-pentester"
+      ],
+      "disambiguation": "Validates and ranks security findings by real risk (dedupe, false-positive filter, severity). For task-completeness verification use qa-verifier; for control/framework compliance use compliance-auditor.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-vulnerability-triage.md"
+    },
+    {
+      "slug": "security-web-app-pentester",
+      "name": "security-web-app-pentester",
+      "description": "Hands-on web application penetration testing for AUTHORIZED engagements — OWASP Top 10 and beyond (injection, auth, access control, SSRF, deserialization). Use to actively test and confirm web vulnerabilities within an agreed scope.",
+      "category": "specialized",
+      "protocol": "persona",
+      "readonly": false,
+      "is_background": false,
+      "model": "claude-opus-4-8",
+      "tags": [
+        "owasp",
+        "penetration-testing",
+        "security",
+        "vulnerability-assessment",
+        "web"
+      ],
+      "domains": [
+        "all"
+      ],
+      "distinguishes_from": [
+        "engineering-security-engineer",
+        "security-recon-mapper",
+        "security-reviewer",
+        "security-vulnerability-triage"
+      ],
+      "disambiguation": "Actively tests a running web app for exploitable vulns in an authorized engagement. For static diff review use security-reviewer; for design-time hardening use engineering-security-engineer.",
+      "version": "1.0.0",
+      "updated_at": "2026-06-08",
+      "deprecated": false,
+      "path": "agents/specialized/security-web-app-pentester.md"
+    },
+    {
       "slug": "specialized-civil-engineer",
       "name": "Civil Engineer",
       "description": "Expert civil and structural engineer with global standards coverage — Eurocode, DIN, ACI, AISC, ASCE, AS/NZS, CSA, GB, IS, AIJ, and more. Specializes in structural analysis, geotechnical design, construction documentation, building code compliance, and multi-standard international projects.",
@@ -4888,7 +5095,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "compliance-audit",
         "implementation",
@@ -4913,7 +5120,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "architecture",
         "ux-design"
@@ -4936,7 +5143,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "audit",
@@ -4971,7 +5178,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "french-market",
         "infra",
@@ -4997,7 +5204,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "korean-market",
         "strategy"
@@ -5020,7 +5227,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "coaching",
         "education",
@@ -5044,7 +5251,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "c-cpp",
         "data-science",
@@ -5075,7 +5282,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "growth",
@@ -5101,7 +5308,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "analytics-reporting",
         "data-engineering",
@@ -5132,7 +5339,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "ai",
         "executive-summary",
@@ -5158,7 +5365,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "authz",
@@ -5189,7 +5396,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "authz",
@@ -5220,7 +5427,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "customer-support",
         "data-science",
@@ -5249,7 +5456,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "audit",
         "data-engineering",
@@ -5280,7 +5487,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "a11y",
         "accessibility-testing",
@@ -5311,7 +5518,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "api-testing",
@@ -5346,7 +5553,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "fast",
+      "model": "claude-opus-4-8",
       "tags": [
         "e2e-testing",
         "mobile",
@@ -5375,7 +5582,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "c-cpp",
         "data-science",
@@ -5409,7 +5616,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "reasoning",
+      "model": "claude-opus-4-8",
       "tags": [
         "implementation",
         "observability",
@@ -5439,7 +5646,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "data-science",
         "go",
@@ -5449,7 +5656,8 @@
         "qa",
         "reporting",
         "security",
-        "ux-design"
+        "ux-design",
+        "vulnerability-assessment"
       ],
       "domains": [
         "all"
@@ -5469,7 +5677,7 @@
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [
         "api",
         "data-science",
@@ -5683,9 +5891,16 @@
       "government-digital-presales-consultant",
       "healthcare-marketing-compliance",
       "identity-graph-operator",
+      "privacy-engineer",
       "recruitment-specialist",
       "report-distribution-agent",
       "sales-data-extraction-agent",
+      "security-exploit-developer",
+      "security-pentest-report-writer",
+      "security-recon-mapper",
+      "security-red-team-operator",
+      "security-vulnerability-triage",
+      "security-web-app-pentester",
       "specialized-civil-engineer",
       "specialized-cultural-intelligence-strategist",
       "specialized-developer-advocate",
@@ -5914,7 +6129,9 @@
       "paid-media-auditor",
       "project-management-jira-workflow-steward",
       "roblox-systems-scripter",
+      "security-pentest-report-writer",
       "security-reviewer",
+      "security-vulnerability-triage",
       "specialized-developer-advocate",
       "specialized-model-qa",
       "support-infrastructure-maintainer",
@@ -6072,6 +6289,7 @@
       "agentic-identity-trust",
       "compliance-auditor",
       "engineering-cve-triage-analyst",
+      "privacy-engineer",
       "specialized-civil-engineer"
     ],
     "content-creation": [
@@ -6136,6 +6354,9 @@
       "sales-data-extraction-agent",
       "specialized-model-qa",
       "support-analytics-reporter"
+    ],
+    "data-protection": [
+      "privacy-engineer"
     ],
     "data-science": [
       "design-ux-researcher",
@@ -6271,6 +6492,9 @@
       "roblox-experience-designer",
       "specialized-salesforce-architect",
       "support-analytics-reporter"
+    ],
+    "exploit-development": [
+      "security-exploit-developer"
     ],
     "feedback-analysis": [
       "design-ux-researcher",
@@ -6777,7 +7001,8 @@
     ],
     "owasp": [
       "engineering-security-engineer",
-      "security-reviewer"
+      "security-reviewer",
+      "security-web-app-pentester"
     ],
     "paid-audit": [
       "marketing-bilibili-content-strategist",
@@ -6797,6 +7022,12 @@
     ],
     "pci": [
       "compliance-auditor"
+    ],
+    "penetration-testing": [
+      "security-exploit-developer",
+      "security-recon-mapper",
+      "security-red-team-operator",
+      "security-web-app-pentester"
     ],
     "performance": [
       "corporate-training-designer",
@@ -6881,6 +7112,9 @@
       "sales-deal-strategist",
       "sales-pipeline-analyst"
     ],
+    "post-exploitation": [
+      "security-red-team-operator"
+    ],
     "postgres": [
       "engineering-analytical-olap-engineer",
       "engineering-database-optimizer",
@@ -6909,6 +7143,7 @@
       "engineering-wechat-mini-program-developer",
       "healthcare-marketing-compliance",
       "paid-media-tracking-specialist",
+      "privacy-engineer",
       "support-legal-compliance-checker"
     ],
     "product-management": [
@@ -7005,9 +7240,16 @@
       "testing-evidence-collector",
       "testing-reality-checker"
     ],
+    "reconnaissance": [
+      "security-recon-mapper"
+    ],
     "recruiting": [
       "recruitment-specialist",
       "supply-chain-strategist"
+    ],
+    "red-team": [
+      "engineering-threat-detection-engineer",
+      "security-red-team-operator"
     ],
     "reddit": [
       "marketing-reddit-community-builder"
@@ -7119,11 +7361,18 @@
       "godot-multiplayer-engineer",
       "government-digital-presales-consultant",
       "healthcare-marketing-compliance",
+      "privacy-engineer",
       "project-management-jira-workflow-steward",
       "roblox-systems-scripter",
       "sales-deal-strategist",
       "sales-engineer",
+      "security-exploit-developer",
+      "security-pentest-report-writer",
+      "security-recon-mapper",
+      "security-red-team-operator",
       "security-reviewer",
+      "security-vulnerability-triage",
+      "security-web-app-pentester",
       "support-infrastructure-maintainer",
       "support-legal-compliance-checker",
       "testing-api-tester",
@@ -7252,6 +7501,7 @@
     ],
     "technical-writing": [
       "engineering-technical-writer",
+      "security-pentest-report-writer",
       "specialized-developer-advocate"
     ],
     "template": [
@@ -7270,7 +7520,8 @@
       "blockchain-security-auditor",
       "engineering-cve-triage-analyst",
       "engineering-security-engineer",
-      "engineering-solidity-smart-contract-engineer"
+      "engineering-solidity-smart-contract-engineer",
+      "security-recon-mapper"
     ],
     "tiktok": [
       "marketing-carousel-growth-engine",
@@ -7407,6 +7658,13 @@
     "vue": [
       "engineering-frontend-developer"
     ],
+    "vulnerability-assessment": [
+      "security-exploit-developer",
+      "security-pentest-report-writer",
+      "security-vulnerability-triage",
+      "security-web-app-pentester",
+      "testing-test-results-analyzer"
+    ],
     "web": [
       "engineering-devops-automator",
       "engineering-feishu-integration-developer",
@@ -7415,6 +7673,7 @@
       "engineering-security-engineer",
       "marketing-agentic-search-optimizer",
       "marketing-seo-specialist",
+      "security-web-app-pentester",
       "testing-accessibility-auditor",
       "testing-performance-benchmarker"
     ],
@@ -7558,6 +7817,7 @@
       "paid-media-programmatic-buyer",
       "paid-media-search-query-analyst",
       "paid-media-tracking-specialist",
+      "privacy-engineer",
       "product-behavioral-nudge-engine",
       "product-feedback-synthesizer",
       "product-manager",
@@ -7583,7 +7843,13 @@
       "sales-outbound-strategist",
       "sales-pipeline-analyst",
       "sales-proposal-strategist",
+      "security-exploit-developer",
+      "security-pentest-report-writer",
+      "security-recon-mapper",
+      "security-red-team-operator",
       "security-reviewer",
+      "security-vulnerability-triage",
+      "security-web-app-pentester",
       "specialized-civil-engineer",
       "specialized-cultural-intelligence-strategist",
       "specialized-developer-advocate",
@@ -7705,6 +7971,7 @@
       "peers": [
         "engineering-security-engineer",
         "engineering-solidity-smart-contract-engineer",
+        "security-exploit-developer",
         "security-reviewer"
       ],
       "note": "Smart-contract-specific audit — exploits, gas abuse, known attack classes on EVM/DeFi. For general application security use engineering-security-engineer; for contract authoring use engineering-solidity-smart-contract-engineer."
@@ -7721,7 +7988,9 @@
         "engineering-cve-triage-analyst",
         "engineering-security-engineer",
         "healthcare-marketing-compliance",
+        "privacy-engineer",
         "security-reviewer",
+        "security-vulnerability-triage",
         "support-legal-compliance-checker"
       ],
       "note": "Regulatory framework compliance (SOC 2, ISO 27001, HIPAA, PCI-DSS) — NOT a code-level security review. For code review use security-reviewer; for legal review use support-legal-compliance-checker."
@@ -7899,7 +8168,8 @@
       "peers": [
         "engineering-debug-specialist",
         "engineering-sre",
-        "engineering-threat-detection-engineer"
+        "engineering-threat-detection-engineer",
+        "security-red-team-operator"
       ],
       "note": ""
     },
@@ -7971,7 +8241,9 @@
         "compliance-auditor",
         "engineering-cve-triage-analyst",
         "engineering-threat-detection-engineer",
-        "security-reviewer"
+        "privacy-engineer",
+        "security-reviewer",
+        "security-web-app-pentester"
       ],
       "note": "Deep design-time security work — threat modelling, architecture, vulnerability assessment. For a post-write review gate use security-reviewer; for smart contracts, blockchain-security-auditor."
     },
@@ -8003,6 +8275,7 @@
     },
     "engineering-technical-writer": {
       "peers": [
+        "security-pentest-report-writer",
         "specialized-developer-advocate"
       ],
       "note": ""
@@ -8011,6 +8284,7 @@
       "peers": [
         "engineering-incident-response-commander",
         "engineering-security-engineer",
+        "security-recon-mapper",
         "security-reviewer"
       ],
       "note": "SIEM rules, threat hunting, detection engineering (MITRE ATT&CK). Not a code reviewer — use security-reviewer for that; not an incident responder — use engineering-incident-response-commander."
@@ -8070,6 +8344,7 @@
         "agentic-identity-trust",
         "compliance-auditor",
         "government-digital-presales-consultant",
+        "privacy-engineer",
         "support-legal-compliance-checker"
       ],
       "note": "Healthcare marketing compliance (HIPAA / ads / PHI). For identity / zero-trust use `agentic-identity-trust`; for gov procurement use `government-digital-presales-consultant`; for general legal use `support-legal-compliance-checker`."
@@ -8262,6 +8537,15 @@
       ],
       "note": ""
     },
+    "privacy-engineer": {
+      "peers": [
+        "compliance-auditor",
+        "engineering-security-engineer",
+        "healthcare-marketing-compliance",
+        "support-legal-compliance-checker"
+      ],
+      "note": "Designs privacy/data-protection INTO the product (data flows, minimization, consent, retention, GDPR/CCPA). For framework/control compliance audits use compliance-auditor; for general appsec hardening use engineering-security-engineer."
+    },
     "project-management-experiment-tracker": {
       "peers": [
         "project-management-laravel-pm",
@@ -8303,6 +8587,7 @@
       "peers": [
         "bg-regression-runner",
         "engineering-llm-evaluation-harness",
+        "security-vulnerability-triage",
         "testing-evidence-collector",
         "testing-reality-checker",
         "wcag-a11y-gate"
@@ -8318,7 +8603,8 @@
     },
     "repo-scout": {
       "peers": [
-        "agents-orchestrator"
+        "agents-orchestrator",
+        "security-recon-mapper"
       ],
       "note": ""
     },
@@ -8348,6 +8634,38 @@
       ],
       "note": ""
     },
+    "security-exploit-developer": {
+      "peers": [
+        "blockchain-security-auditor",
+        "security-red-team-operator",
+        "security-web-app-pentester"
+      ],
+      "note": "Builds a minimal PoC for an already-confirmed vuln to prove impact in an authorized test. For finding web vulns use security-web-app-pentester; for smart-contract exploit classes use blockchain-security-auditor."
+    },
+    "security-pentest-report-writer": {
+      "peers": [
+        "engineering-technical-writer",
+        "security-vulnerability-triage",
+        "security-web-app-pentester"
+      ],
+      "note": "Writes the engagement deliverable (exec summary + findings + remediation) from confirmed results. For general developer docs use engineering-technical-writer; for ranking/validating the findings first use security-vulnerability-triage."
+    },
+    "security-recon-mapper": {
+      "peers": [
+        "engineering-threat-detection-engineer",
+        "repo-scout",
+        "security-web-app-pentester"
+      ],
+      "note": "Maps the attack surface (assets, endpoints, services, stack) for an authorized engagement. For codebase file/symbol mapping use repo-scout; for actually testing web findings use security-web-app-pentester."
+    },
+    "security-red-team-operator": {
+      "peers": [
+        "engineering-incident-response-commander",
+        "security-exploit-developer",
+        "security-web-app-pentester"
+      ],
+      "note": "Models post-exploitation reach (lateral movement, priv-esc, persistence) for an authorized red-team. For initial web exploitation use security-web-app-pentester; for the defensive/IR side use engineering-incident-response-commander."
+    },
     "security-reviewer": {
       "peers": [
         "blockchain-security-auditor",
@@ -8355,9 +8673,33 @@
         "engineering-code-reviewer",
         "engineering-cve-triage-analyst",
         "engineering-security-engineer",
-        "engineering-threat-detection-engineer"
+        "engineering-threat-detection-engineer",
+        "security-vulnerability-triage",
+        "security-web-app-pentester"
       ],
       "note": "Strict readonly gate triggered by auth/payments/admin/secrets/external-API changes. Deep threat modelling goes to engineering-security-engineer; smart contracts to blockchain-security-auditor."
+    },
+    "security-vulnerability-triage": {
+      "peers": [
+        "compliance-auditor",
+        "qa-verifier",
+        "security-pentest-report-writer",
+        "security-reviewer",
+        "security-web-app-pentester"
+      ],
+      "note": "Validates and ranks security findings by real risk (dedupe, false-positive filter, severity). For task-completeness verification use qa-verifier; for control/framework compliance use compliance-auditor."
+    },
+    "security-web-app-pentester": {
+      "peers": [
+        "engineering-security-engineer",
+        "security-exploit-developer",
+        "security-pentest-report-writer",
+        "security-recon-mapper",
+        "security-red-team-operator",
+        "security-reviewer",
+        "security-vulnerability-triage"
+      ],
+      "note": "Actively tests a running web app for exploitable vulns in an authorized engagement. For static diff review use security-reviewer; for design-time hardening use engineering-security-engineer."
     },
     "specialized-developer-advocate": {
       "peers": [
@@ -8397,7 +8739,8 @@
     "support-legal-compliance-checker": {
       "peers": [
         "compliance-auditor",
-        "healthcare-marketing-compliance"
+        "healthcare-marketing-compliance",
+        "privacy-engineer"
       ],
       "note": ""
     },

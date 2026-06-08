@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [ethereum, architecture, defi, solidity, smart-contracts, threat-modeling, authz, ui-design, secrets, solana]
 domains: [blockchain]
 version: 1.0.0

@@ -6,7 +6,7 @@ category: review
 protocol: strict
 readonly: true
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [review, sre, observability, reliability, performance, scaling, database-design, query-optimization, caching]
 domains: [all]
 distinguishes_from: [engineering-sre, engineering-database-optimizer, testing-performance-benchmarker]

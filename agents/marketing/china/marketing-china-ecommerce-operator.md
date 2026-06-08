@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [ecommerce, growth, strategy, livestream-commerce, customer-support, data-science, experiment-tracking, seo, infra, performance]
 domains: [china-market]
 distinguishes_from: [marketing-cross-border-ecommerce, marketing-livestream-commerce-coach, marketing-private-domain-operator]

@@ -6,7 +6,7 @@ category: paid-media
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [content-creation, programmatic, experiment-tracking, ppc, strategy, performance]
 domains: [all]
 version: 1.0.0

@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, content-creation, community-building, experiment-tracking, strategy, performance]
 domains: [all]
 distinguishes_from: [marketing-seo-specialist, marketing-linkedin-content-creator, marketing-social-media-strategist]

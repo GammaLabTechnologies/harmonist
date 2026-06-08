@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [unity, gamedev, ui-design, api, qa]
 domains: [gamedev]
 version: 1.0.0

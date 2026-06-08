@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [ai, growth, aeo, content-creation, audit, implementation, seo, infra]
 domains: [all]
 distinguishes_from: [marketing-seo-specialist, marketing-agentic-search-optimizer, marketing-content-creator]

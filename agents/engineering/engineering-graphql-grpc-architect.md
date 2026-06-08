@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [graphql, grpc, api, backend, architecture, event-driven, performance, mobile, frontend]
 domains: [all]
 distinguishes_from: [engineering-backend-architect, engineering-software-architect]

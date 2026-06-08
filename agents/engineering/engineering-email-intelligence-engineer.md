@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [ai, audit, privacy, data-engineering, finance-tracking, regression, scaling, node, python, api]
 domains: [all]
 version: 1.0.0

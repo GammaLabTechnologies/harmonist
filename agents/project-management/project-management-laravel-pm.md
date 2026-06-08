@@ -6,7 +6,7 @@ category: project-management
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [project-planning, php, implementation, ai]
 domains: [all]
 distinguishes_from: [project-management-jira-workflow-steward, project-management-experiment-tracker, project-management-studio-producer, agents-orchestrator]

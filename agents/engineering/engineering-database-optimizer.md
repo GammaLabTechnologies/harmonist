@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [mysql, database-design, query-optimization, postgres, performance]
 domains: [all]
 distinguishes_from: [sre-observability, engineering-backend-architect]

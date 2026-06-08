@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [unity, gamedev, hlsl, brand-design, mobile, node, performance, api, infra]
 domains: [gamedev]
 distinguishes_from: [unity-architect, unity-editor-tool-developer, unity-multiplayer-engineer, technical-artist]

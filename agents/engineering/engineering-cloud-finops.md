@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [finops, observability, infra, strategy, architecture, aws, gcp, azure, audit]
 domains: [all]
 distinguishes_from: [engineering-inference-economics-optimizer, engineering-devops-automator, engineering-sre]

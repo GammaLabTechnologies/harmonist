@@ -6,7 +6,7 @@ category: spatial-computing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [swift, metal, xr, visionos, game-audio, node, performance, tracking]
 domains: [xr]
 version: 1.0.0

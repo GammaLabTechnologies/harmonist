@@ -57,7 +57,7 @@ import sys
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
-MIN_AGENTS = 100  # current pool is 186; a clone below this is truncated
+MIN_AGENTS = 100  # current pool is 193; a clone below this is truncated
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$")
 
 REQUIRED_SCRIPTS = [
@@ -66,7 +66,9 @@ REQUIRED_SCRIPTS = [
     "agents/scripts/lint_agents.py",
     "agents/scripts/lint-agents.sh",
     "agents/scripts/convert.sh",
+    "agents/scripts/convert.py",
     "agents/scripts/install.sh",
+    "agents/scripts/install.py",
     "agents/scripts/detect_clones.py",
     "agents/scripts/extract_essentials.py",
     "agents/scripts/project_context.py",
@@ -90,6 +92,7 @@ REQUIRED_SCRIPTS = [
     "agents/scripts/telemetry_webhook.py",
     "agents/scripts/insert_deep_ref_marker.py",
     "agents/scripts/install_extras.py",
+    "agents/scripts/repomap.py",
 ]
 
 REQUIRED_DIRS = [
@@ -125,6 +128,10 @@ REQUIRED_HOOK_SCRIPTS = [
     "hooks/scripts/record-subagent-start.sh",
     "hooks/scripts/record-subagent-stop.sh",
     "hooks/scripts/gate-stop.sh",
+    "hooks/scripts/gate-shell.sh",
+    "hooks/scripts/git-pre-commit.sh",
+    "hooks/scripts/install-git-hooks.sh",
+    "hooks/scripts/hook_runner.py",
     "hooks/hooks.json",
 ]
 
@@ -373,7 +380,7 @@ def check_index_fresh(pack: Path) -> CheckResult:
     if not script.exists():
         return CheckResult("index-fresh", False, "build_index.py missing",
                            "Pack is truncated; re-clone.")
-    rc = _run(["python3", str(script), "--check"], cwd=pack)
+    rc = _run([sys.executable, str(script), "--check"], cwd=pack)
     if rc.returncode == 0:
         return CheckResult("index-fresh", True, "agents/index.json is up to date")
     return CheckResult(
@@ -384,18 +391,19 @@ def check_index_fresh(pack: Path) -> CheckResult:
 
 
 def check_lint(pack: Path) -> CheckResult:
-    script = pack / "agents" / "scripts" / "lint-agents.sh"
+    # Run the Python linter directly (lint-agents.sh is only a POSIX wrapper
+    # around it) so this check works on native Windows too.
+    script = pack / "agents" / "scripts" / "lint_agents.py"
     if not script.exists():
-        return CheckResult("lint", False, "lint-agents.sh missing",
+        return CheckResult("lint", False, "lint_agents.py missing",
                            "Re-clone the pack.")
-    rc = _run(["bash", str(script)], cwd=pack)
+    rc = _run([sys.executable, str(script)], cwd=pack)
     if rc.returncode == 0:
-        tail = (rc.stdout.splitlines()[-3:] if rc.stdout else [])
         return CheckResult("lint", True, "agent lint passes")
     return CheckResult(
         "lint", False,
         f"agent lint failed:\n{rc.stdout.strip()[:400]}",
-        "Run: bash agents/scripts/lint-agents.sh   and fix the reported errors.",
+        "Run: python3 agents/scripts/lint_agents.py   and fix the reported errors.",
     )
 
 
@@ -404,7 +412,7 @@ def check_migrator_idempotent(pack: Path) -> CheckResult:
     if not script.exists():
         return CheckResult("migrator-idempotent", False, "migrate_schema.py missing",
                            "Re-clone.")
-    rc = _run(["python3", str(script)], cwd=pack)
+    rc = _run([sys.executable, str(script)], cwd=pack)
     if rc.returncode != 0:
         return CheckResult(
             "migrator-idempotent", False,
@@ -641,7 +649,9 @@ def check_scripts(pack: Path) -> CheckResult:
         if not p.exists():
             missing.append(s)
             continue
-        if not (p.stat().st_mode & 0o111):
+        # The executable bit is a POSIX concept; on Windows it is not
+        # tracked and Python reports it inconsistently, so skip the check.
+        if os.name != "nt" and not (p.stat().st_mode & 0o111):
             not_exec.append(s)
     problems = []
     if missing:
@@ -666,8 +676,9 @@ def check_hooks(pack: Path) -> CheckResult:
             f"missing hook files: {missing}",
             "Re-clone or restore from upstream.",
         )
-    # Hook .sh files should be executable.
-    not_exec = [
+    # Hook .sh files should be executable on POSIX. On Windows the bit is
+    # not tracked (and hooks run via hook_runner.py anyway), so skip it.
+    not_exec = [] if os.name == "nt" else [
         f for f in REQUIRED_HOOK_SCRIPTS
         if f.endswith(".sh") and not (pack / f).stat().st_mode & 0o111
     ]
@@ -689,7 +700,7 @@ def check_memory(pack: Path) -> CheckResult:
             f"missing memory files: {missing}",
             "Re-clone or restore from upstream.",
         )
-    rc = _run(["python3", str(pack / "memory" / "validate.py"),
+    rc = _run([sys.executable, str(pack / "memory" / "validate.py"),
                "--path", str(pack / "memory"), "--strict", "--quiet"], cwd=pack)
     if rc.returncode != 0:
         return CheckResult(

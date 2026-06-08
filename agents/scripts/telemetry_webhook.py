@@ -26,16 +26,26 @@ What it does NOT send:
   - per-user identifiers beyond the agent slug dashboard already in
     agent-usage.json (which is already local + .gitignored)
 
+Safety:
+  - Only http/https destinations are allowed. A file://, ftp://, or other
+    scheme is refused (a config/env-supplied URL must not be able to make
+    urllib read a local file -- SSRF / local-file disclosure).
+  - Redirects are NOT followed (a 30x Location could pivot to file:// or an
+    internal host); a 3xx is treated as a delivery failure.
+  - Transient failures (network errors, HTTP 429, and 5xx) are retried with
+    exponential backoff + jitter, up to --attempts times (default 3).
+
 Usage:
     python3 harmonist/agents/scripts/telemetry_webhook.py
     python3 harmonist/agents/scripts/telemetry_webhook.py --project /p
     python3 harmonist/agents/scripts/telemetry_webhook.py --dry-run
     python3 harmonist/agents/scripts/telemetry_webhook.py --url https://...
+    python3 harmonist/agents/scripts/telemetry_webhook.py --attempts 5
 
 Exit codes:
     0  delivered (or dry-run succeeded)
-    1  webhook responded non-2xx
-    2  no telemetry file or no webhook configured
+    1  webhook responded non-2xx (after retries)
+    2  no telemetry file, no webhook configured, or disallowed URL scheme
 """
 
 from __future__ import annotations
@@ -58,14 +68,45 @@ if _asp_sys.version_info < (3, 9):
 import argparse
 import json
 import os
+import random
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 
 SCHEMA = "harmonist.telemetry/v1"
+
+# Only these URL schemes may be POSTed to. urllib.request.urlopen will happily
+# open file://, ftp://, etc. -- a config- or env-supplied URL of file:///etc/...
+# would read a LOCAL FILE (SSRF / local-file disclosure). Restrict to HTTP(S).
+ALLOWED_SCHEMES = {"http", "https"}
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not follow redirects. A 30x Location: could point at file:// or an
+    internal address (SSRF pivot); surface the 3xx to the caller as a non-2xx
+    instead of chasing it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _validate_webhook_url(url: str) -> "tuple[bool, str]":
+    if not url:
+        return (False, "empty URL")
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception as e:
+        return (False, f"unparseable URL ({e.__class__.__name__})")
+    if parsed.scheme.lower() not in ALLOWED_SCHEMES:
+        return (False, f"scheme {parsed.scheme!r} not allowed "
+                       f"(only http/https; got {url[:40]!r})")
+    if not parsed.netloc:
+        return (False, "URL has no host")
+    return (True, "")
 
 
 def _load_webhook_url(project: Path, cli_url: str | None) -> str:
@@ -117,16 +158,44 @@ def _post_json(url: str, payload: dict, timeout: int,
             **(extra_headers or {}),
         },
     )
+    opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return (resp.status, resp.read(2048).decode(
-                "utf-8", errors="replace"))
+        with opener.open(req, timeout=timeout) as resp:
+            status = getattr(resp, "status", None) or resp.getcode()
+            return (status, resp.read(2048).decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as e:
         return (e.code, e.read(2048).decode("utf-8", errors="replace"))
     except urllib.error.URLError as e:
         return (0, f"URLError: {e.reason}")
     except Exception as e:
         return (0, f"{e.__class__.__name__}: {e}")
+
+
+def _is_retryable(status: int) -> bool:
+    """Transient failures worth retrying: network errors, rate-limit, 5xx.
+    4xx (other than 429) are caller errors that a retry won't fix."""
+    return status == 0 or status == 429 or 500 <= status < 600
+
+
+def _post_with_retry(url: str, payload: dict, timeout: int,
+                     headers: dict[str, str], attempts: int
+                     ) -> "tuple[int, str]":
+    """POST with exponential backoff + jitter, matching the pack's documented
+    resilience policy (retries with backoff, bounded attempts)."""
+    attempts = max(1, attempts)
+    status, resp_body = 0, ""
+    for i in range(attempts):
+        status, resp_body = _post_json(url, payload, timeout, headers)
+        if 200 <= status < 300:
+            return (status, resp_body)
+        if i < attempts - 1 and _is_retryable(status):
+            delay = min(float(timeout), (2 ** i) * 0.5) + random.uniform(0, 0.5)
+            print(f"  attempt {i + 1}/{attempts} failed (status={status}); "
+                  f"retrying in {delay:.1f}s", file=sys.stderr)
+            time.sleep(delay)
+            continue
+        break
+    return (status, resp_body)
 
 
 def main(argv: list[str]) -> int:
@@ -138,6 +207,10 @@ def main(argv: list[str]) -> int:
                     help="Extra HTTP header as 'Name: value'. Repeatable. "
                          "Use this for auth tokens (e.g. Slack bearer).")
     ap.add_argument("--timeout", type=int, default=10)
+    ap.add_argument("--attempts", type=int, default=3,
+                    help="Max total send attempts (retries transient failures "
+                         "-- network/429/5xx -- with exponential backoff + "
+                         "jitter). Default 3.")
     ap.add_argument("--dry-run", action="store_true",
                     help="Build the payload and print it; don't send.")
     args = ap.parse_args(argv)
@@ -156,6 +229,15 @@ def main(argv: list[str]) -> int:
               "{\"telemetry_webhook_url\": \"<url>\"}",
               file=sys.stderr)
         return 2
+
+    # Refuse non-HTTP(S) destinations BEFORE building any request: a file://
+    # or other-scheme URL would make urllib read a local resource.
+    if webhook_url:
+        ok, reason = _validate_webhook_url(webhook_url)
+        if not ok:
+            print(f"telemetry_webhook: refusing to use webhook URL -- {reason}",
+                  file=sys.stderr)
+            return 2
 
     tel = _load_telemetry(project)
     if not tel:
@@ -187,7 +269,8 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 0
 
-    status, body = _post_json(webhook_url, payload, args.timeout, headers)
+    status, body = _post_with_retry(
+        webhook_url, payload, args.timeout, headers, args.attempts)
     if 200 <= status < 300:
         print(f"  delivered ({status}): {len(payload['summaries'])} "
               f"summary counters, {len(payload['agents'])} agent slugs")

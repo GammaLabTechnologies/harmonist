@@ -6,7 +6,7 @@ category: sales
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [sales-engineering, performance-testing, soc2, architecture, security, implementation, performance, strategy]
 domains: [all]
 version: 1.0.0

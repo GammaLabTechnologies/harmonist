@@ -1,0 +1,31 @@
+# Enforce LF line endings for all text files on every OS.
+#
+# Why this matters: the pack hashes every shipped file into
+# MANIFEST.sha256 and ships POSIX .sh hook scripts. If a Windows clone
+# with core.autocrlf=true rewrote LF -> CRLF on checkout, the sha256
+# verification would fail ("supply-chain tampering") and the shell
+# scripts would break. Pinning eol=lf keeps the working tree byte-identical
+# across Windows, macOS, and Linux, so cross-platform integration stays
+# deterministic.
+* text=auto eol=lf
+
+*.py     text eol=lf
+*.sh     text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.mdc    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.txt    text eol=lf
+*.sha256 text eol=lf
+*.template text eol=lf
+
+# Guard against accidental binary corruption (none ship today).
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.gz   binary
+*.tar  binary
+*.zip  binary

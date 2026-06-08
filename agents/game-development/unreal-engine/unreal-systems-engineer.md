@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [unreal, performance, architecture, gamedev, multiplayer, c-cpp, api]
 domains: [gamedev]
 distinguishes_from: [unreal-multiplayer-architect, unreal-world-builder, unreal-technical-artist]

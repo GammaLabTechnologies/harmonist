@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, ecommerce, cross-border, tiktok, ppc, brand-design, content-creation, customer-support, experiment-tracking, livestream-commerce]
 domains: [all]
 distinguishes_from: [marketing-china-ecommerce-operator, marketing-livestream-commerce-coach, marketing-tiktok-strategist]

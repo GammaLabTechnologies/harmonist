@@ -28,6 +28,7 @@ the missing steps. A `loop_limit` on the hook caps the number of retries.
 | Any file write outside ignored paths | `.cursor/memory/session-handoff.md` updated before `stop` | `gate-stop.sh` |
 | Session start | Agent is reminded to read `session-handoff.md` and to mark subagent calls | `seed-session.sh` |
 | Subagent delegation | Log the call; extract `AGENT: <slug>` marker | `record-subagent-start.sh` |
+| Subagent delegation | DENY the launch if `max_concurrent_subagents` are already running (prevents RAM-exhausting fan-out) | `record-subagent-start.sh` |
 | Subagent completion | If slug is in the reviewer set, credit it | `record-subagent-stop.sh` |
 
 Explicit opt-out: if the agent's final message contains `PROTOCOL-SKIP: <reason>`,
@@ -70,7 +71,9 @@ prompt copies these files into the project's `.cursor/`:
 ```
 
 Cursor reloads `hooks.json` automatically on save. Verify in Cursor's
-*Settings → Hooks* tab that all five hooks loaded without errors.
+*Settings → Hooks* tab that all six hooks loaded without errors
+(`sessionStart`, `afterFileEdit`, `subagentStart`, `subagentStop`,
+`beforeShellExecution`, `stop`).
 
 ## Configuration
 
@@ -98,11 +101,70 @@ creating `.cursor/hooks/config.json`:
     ".cursor/memory/session-handoff.md",
     ".cursor/memory/decisions.md",
     ".cursor/memory/patterns.md"
-  ]
+  ],
+  "max_concurrent_subagents": 3,
+  "subagent_stale_seconds": 900,
+  "require_affected_tests": false,
+  "repomap_staleness_warn": true,
+  "require_delegation_context": false,
+  "min_delegation_chars": 80,
+  "hitl_enabled": true,
+  "dangerous_command_action": "ask"
 }
 ```
 
 Anything you omit falls through to the defaults.
+
+### Impact-aware gate (repo map)
+
+When `require_affected_tests` is `true`, the `stop` hook uses the local
+repo map (`.cursor/repomap/`) to compute the **test files affected** by the
+task's edits, and refuses to finish until a regression run has passed
+(`last_regression_ok`) when affected tests exist — so a change can't ship
+without the tests it can actually break being run. Off by default (opt in per
+project, like `require_regression_passed`). With `repomap_staleness_warn`
+(default `true`), `sessionStart` prints a one-line banner when the map is
+stale or unbuilt. Both are no-ops if the repo map isn't installed.
+
+### Concurrency cap (memory safety)
+
+Unbounded parallel subagent fan-out (mesh topology) can spawn many
+heavyweight subagents at once and exhaust RAM — a real risk now that
+agents run on a 1M-context model. The `subagentStart` hook enforces a
+hard cap:
+
+- **`max_concurrent_subagents`** (default `3`) — once this many subagents
+  are running (started, not yet stopped) in the current task, the next
+  `subagentStart` returns `{"permission": "deny"}` and the launch is
+  blocked. The orchestrator is told to wait for an active subagent to
+  finish, then dispatch the next. Set to `0` to disable the cap entirely.
+- **`subagent_stale_seconds`** (default `900`) — a subagent whose start is
+  older than this with no observed `subagentStop` is treated as finished
+  for the count, so a missed stop event can never permanently lock out new
+  launches.
+
+Denials are counted in telemetry under `summaries.subagent_cap_denials`.
+
+### Delegation-context gate (opt-in)
+
+A subagent only sees the prompt you pass it — not your conversation. A
+marker-only / contextless delegation makes it guess and redo work. With
+**`require_delegation_context`** on, `subagentStart` DENIES a `task` whose
+handoff (prompt minus the `AGENT:` marker) is shorter than
+**`min_delegation_chars`** (default 80), forcing a real handoff package
+(target/scope, the single sub-goal, constraints, success criteria). Off by
+default; counted under `summaries.delegation_context_denials`.
+
+### HITL gate on dangerous commands
+
+The **`beforeShellExecution`** hook is human-in-the-loop protection: it matches
+the command against **`dangerous_command_patterns`** (root/home/wildcard
+deletes, `git push --force`, `dd`/`mkfs`, fork bombs, `curl … | sh`,
+`DROP/TRUNCATE`, …) and returns **`ask`** (the human confirms) or **`deny`**,
+per **`dangerous_command_action`**. On by default (`hitl_enabled: true`,
+action `ask`) and tuned to leave routine commands (e.g. `rm -rf node_modules`)
+alone — only catastrophic ones pause. Counted under `summaries.hitl_gated`.
+This phase is handled by the Python hook runner (the active path on every OS).
 
 ## Debugging
 

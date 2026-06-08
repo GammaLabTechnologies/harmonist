@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [salesforce, architecture, strategy, experiment-tracking, query-optimization, infra]
 domains: [all]
 version: 1.0.0

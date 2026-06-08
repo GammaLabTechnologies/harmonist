@@ -6,7 +6,7 @@
 ---
 
 I have an `harmonist/` folder — a portable AI agent orchestration system
-with a single unified catalog of 186 agents indexed at `agents/index.json`
+with a single unified catalog of 193 agents indexed at `agents/index.json`
 and mechanical protocol enforcement via Cursor hooks.
 Integrate it into my project. Follow these 11 steps exactly. Do NOT skip or
 combine steps.
@@ -205,15 +205,10 @@ response.
 
 **Step 4 — Install orchestration + review agents**
 
-Every project needs the universal scout + reviewers. Copy all agents from
-these two directories into `.cursor/agents/`:
+Every project needs the universal scout + reviewers. `upgrade.py --apply`
+installs exactly these **6** strict, `readonly: true` agents into
+`.cursor/agents/` (you normally don't copy them by hand — the installer does):
 
-```
-harmonist/agents/orchestration/*.md   →  .cursor/agents/
-harmonist/agents/review/*.md          →  .cursor/agents/
-```
-
-Current list (6 agents, all `readonly: true`, `protocol: strict`):
 - `repo-scout` — scout before implementation
 - `security-reviewer` — OWASP, secrets, auth
 - `code-quality-auditor` — async bugs, error handling
@@ -224,6 +219,13 @@ Current list (6 agents, all `readonly: true`, `protocol: strict`):
 For `bg-regression-runner.md` **only**: replace the generic test/lint/build
 commands in its body with this project's actual commands before saving.
 The rest stay verbatim.
+
+Two `agents/` entries are deliberately NOT auto-installed:
+- `agents-orchestrator` is the orchestrator **persona you operate as** — it is
+  not invoked as a subagent, so it is not copied into `.cursor/agents/`.
+- `wcag-a11y-gate` is an on-demand strict review gate. Install it (Step 5) only
+  for projects with a UI; the trigger table then routes UI / form / modal /
+  navigation changes to it before `qa-verifier`.
 
 ---
 
@@ -423,11 +425,17 @@ python3 harmonist/agents/scripts/upgrade.py --apply
 
 This writes:
 
-- `.cursor/hooks.json`
-- `.cursor/hooks/scripts/{lib,seed-session,record-write,record-subagent-start,record-subagent-stop,gate-stop}.sh`
+- `.cursor/hooks.json` (rendered with a Python launcher that exists on this
+  host — `python3` / `py -3` / `python`)
+- `.cursor/hooks/scripts/hook_runner.py` — the cross-platform active runner
+  that `hooks.json` invokes on every OS
+- `.cursor/hooks/scripts/{lib,seed-session,record-write,record-subagent-start,record-subagent-stop,gate-stop,gate-shell,git-pre-commit,install-git-hooks}.sh`
 - `.cursor/agents/{repo-scout,security-reviewer,code-quality-auditor,qa-verifier,sre-observability}.md`
-- `.cursor/memory/{memory.py,validate.py,SCHEMA.md,README.md}`
-- `.cursor/pack-version.json`
+- `.cursor/memory/{memory.py,validate.py,migrations.py,SCHEMA.md,README.md}`
+- `.cursor/repomap/repomap.py` — the zero-dependency code-intelligence index
+- `.cursor/rules/protocol-enforcement.mdc` — the canonical enforcement rule
+- `.cursor/pack-version.json` + `.cursor/pack-manifest.json` (sha256 of every
+  pack-owned file, for post-install drift detection)
 
 `bg-regression-runner.md` is seeded automatically by `upgrade.py --apply`:
 the script reads your project manifests (`package.json` + lockfile,
@@ -452,9 +460,9 @@ Later, when a new version of the pack ships, re-run
 `AGENTS.md`, memory entries, project-domain rules, specialists, or
 `bg-regression-runner`.
 
-Verify in Cursor: *Settings → Hooks* — all five hooks (`sessionStart`,
-`afterFileEdit`, `subagentStart`, `subagentStop`, `stop`) should load
-without errors.
+Verify in Cursor: *Settings → Hooks* — all six hooks (`sessionStart`,
+`afterFileEdit`, `subagentStart`, `subagentStop`, `beforeShellExecution`,
+`stop`) should load without errors.
 
 ---
 
@@ -591,7 +599,7 @@ Agents installed: [number]
 Domain: [identity from AGENTS.md]
 Key invariants: [list]
 Domain rules: [list]
-Agent index: harmonist/agents/index.json (186 agents, 16 categories)
+Agent index: harmonist/agents/index.json (193 agents, 16 categories)
 
 IMPORTANT: Start a NEW CHAT for your first task — rules take full effect in a fresh conversation.
 

@@ -6,7 +6,7 @@ category: spatial-computing
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [visionos, xr, swift, implementation, ux-design]
 domains: [xr]
 distinguishes_from: [macos-spatial-metal-engineer, xr-immersive-developer, xr-interface-architect]

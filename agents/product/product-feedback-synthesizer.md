@@ -6,7 +6,7 @@ category: product
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [feedback-analysis, data-science, experiment-tracking, qa, ux-design, ux-research, observability, prioritization]
 domains: [all]
 version: 1.0.0

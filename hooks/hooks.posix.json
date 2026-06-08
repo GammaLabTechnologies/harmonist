@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_comment": "POSIX-only variant pointing at the .sh scripts. The pack defaults to the cross-platform Python runner (hooks.json); use this copy only if you explicitly need the bash path (e.g. running hook tests in CI against the shell implementation).",
+  "_comment": "POSIX-only variant pointing at the .sh scripts. The pack defaults to the cross-platform Python runner (hooks.json); use this copy only if you explicitly need the bash path (e.g. running hook tests in CI against the shell implementation). beforeShellExecution delegates to hook_runner.py so the HITL dangerous-command gate is identical on both paths.",
   "hooks": {
     "sessionStart": [
       {
@@ -20,6 +20,11 @@
     "subagentStop": [
       {
         "command": ".cursor/hooks/scripts/record-subagent-stop.sh"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/scripts/gate-shell.sh"
       }
     ],
     "stop": [

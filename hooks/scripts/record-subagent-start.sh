@@ -13,6 +13,87 @@ set -euo pipefail
 
 read_stdin
 
+# Mechanical concurrency cap: deny a new subagent launch while
+# max_concurrent_subagents are already open. Mirrors hook_runner.py so the
+# POSIX and Python paths behave identically. Counts open (not-completed,
+# not-stale) calls; emits {"permission":"deny"} when the cap is hit.
+cap_decision="$(STATE_FILE_PATH="$STATE_FILE" CFG_JSON="$(read_cfg)" python3 - <<'PY'
+import json, os, time, calendar, pathlib
+cfg = json.loads(os.environ.get("CFG_JSON", "{}"))
+cap = int(cfg.get("max_concurrent_subagents", 3) or 0)
+if cap <= 0:
+    print("OK"); raise SystemExit
+try:
+    state = json.loads(pathlib.Path(os.environ["STATE_FILE_PATH"]).read_text())
+except Exception:
+    print("OK"); raise SystemExit
+stale = int(cfg.get("subagent_stale_seconds", 900) or 0)
+now = time.time()
+active = 0
+for call in state.get("subagent_calls", []):
+    if call.get("completed") or call.get("stopped_at"):
+        continue
+    ts = call.get("at") or call.get("started_at") or ""
+    if stale > 0 and ts:
+        try:
+            started = calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
+            if (now - started) > stale:
+                continue
+        except Exception:
+            pass
+    active += 1
+print(f"DENY {active} {cap}" if active >= cap else "OK")
+PY
+)"
+if [[ "$cap_decision" == DENY* ]]; then
+  read -r _ active cap <<< "$cap_decision"
+  log_event "subagentStart DENIED: ${active} active >= cap ${cap}"
+  bump_telemetry_counter "summaries.subagent_cap_denials"
+  emit_deny "Concurrent-subagent limit reached: ${active} subagent(s) already running (max_concurrent_subagents=${cap}). Running too many subagents in parallel can exhaust memory, especially on a 1M-context model. Wait for an active subagent to finish, then dispatch the next one. Raise max_concurrent_subagents in .cursor/hooks/config.json to allow more."
+  exit 0
+fi
+
+# Delegation-context gate (opt-in): deny a marker-only / contextless task.
+deleg_decision="$(CFG_JSON="$(read_cfg)" STDIN_JSON="$STDIN_JSON" python3 - <<'PY'
+import json, os, re
+cfg = json.loads(os.environ.get("CFG_JSON", "{}"))
+if not cfg.get("require_delegation_context", False):
+    print("OK"); raise SystemExit
+try:
+    inp = json.loads(os.environ.get("STDIN_JSON", "") or "{}")
+except Exception:
+    inp = {}
+prompt = ""
+for k in ("prompt", "task", "description", "input", "message"):
+    v = inp.get(k)
+    if isinstance(v, str) and v.strip():
+        prompt = v
+        break
+if isinstance(inp.get("tool_input"), dict):
+    for k in ("prompt", "task", "description"):
+        v = inp["tool_input"].get(k)
+        if isinstance(v, str) and v.strip():
+            prompt = v
+            break
+slug = None
+m = re.search(r"^\s*AGENT:\s*([a-z0-9][a-z0-9-]*)", prompt or "", re.MULTILINE)
+if m:
+    slug = m.group(1)
+if not slug:
+    print("OK"); raise SystemExit  # no marker -> handled elsewhere
+body = re.sub(r"(?im)^\s*AGENT:\s*\S+\s*$", "", prompt or "")
+body = re.sub(r"<!--\s*AGENT:[^>]*-->", "", body)
+min_chars = int(cfg.get("min_delegation_chars", 80) or 0)
+print("DENY" if len(body.strip()) < min_chars else "OK")
+PY
+)"
+if [[ "$deleg_decision" == DENY ]]; then
+  log_event "subagentStart DENIED: thin delegation (require_delegation_context)"
+  bump_telemetry_counter "summaries.delegation_context_denials"
+  emit_deny "Thin delegation: a subagent only sees the prompt you pass, not your conversation. Include the handoff package — target/scope, the single sub-goal, constraints (authorization boundary, what NOT to do), success criteria — plus the PROJECT PRECEDENCE preamble. Re-dispatch with that context. (Disable via require_delegation_context in .cursor/hooks/config.json.)"
+  exit 0
+fi
+
 state_update '
 import os, pathlib, re, time
 
@@ -54,25 +135,29 @@ if not slug and prompt:
 # records them, `gate-stop.sh` blocks on them.
 readonly_flag = False
 if slug:
-    # The hook lives at .cursor/hooks/scripts/record-subagent-start.sh
-    # and agent files are at .cursor/agents/<slug>.md. Walk up two
-    # levels from this script to find .cursor/.
-    for candidate in (
-        pathlib.Path(".cursor") / "agents" / (slug + ".md"),
-    ):
-        if candidate.exists():
-            try:
-                text = candidate.read_text(errors="replace")
-                mfm = re.match(r"\A---\n(.*?)\n---\n", text, flags=re.DOTALL)
-                if mfm:
-                    for line in mfm.group(1).splitlines():
-                        mr = re.match(r"^readonly:\s*(true|True|yes)\s*$", line)
-                        if mr:
-                            readonly_flag = True
-                            break
-            except Exception:
-                pass
-            break
+    # Agents install under .cursor/agents/, often in category subfolders
+    # (e.g. .cursor/agents/review/<slug>.md), so a flat lookup misses them
+    # and a readonly reviewer that writes would go undetected (fail-open).
+    # Check the flat path first, then search recursively.
+    agents_dir = pathlib.Path(".cursor") / "agents"
+    agent_file = None
+    flat = agents_dir / (slug + ".md")
+    if flat.exists():
+        agent_file = flat
+    elif agents_dir.exists():
+        agent_file = next((p for p in agents_dir.rglob(slug + ".md")), None)
+    if agent_file is not None:
+        try:
+            text = agent_file.read_text(errors="replace")
+            mfm = re.match(r"\A---\n(.*?)\n---\n", text, flags=re.DOTALL)
+            if mfm:
+                for line in mfm.group(1).splitlines():
+                    mr = re.match(r"^readonly:\s*(true|True|yes)\s*$", line)
+                    if mr:
+                        readonly_flag = True
+                        break
+        except Exception:
+            pass
 
 entry = {
     "subagent_type": INPUT.get("subagent_type") or INPUT.get("type") or "unknown",

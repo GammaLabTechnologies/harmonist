@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [roblox, ux-design, gamedev, experiment-tracking, next, infra]
 domains: [gamedev]
 version: 1.0.0

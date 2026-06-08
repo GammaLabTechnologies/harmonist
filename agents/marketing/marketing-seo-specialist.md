@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [seo, growth, content-creation, audit, strategy, web, architecture, observability, reporting, performance]
 domains: [all]
 distinguishes_from: [marketing-ai-citation-strategist, marketing-agentic-search-optimizer, marketing-baidu-seo-specialist, marketing-content-creator]

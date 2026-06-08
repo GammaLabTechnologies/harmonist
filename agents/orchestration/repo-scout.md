@@ -6,7 +6,7 @@ category: orchestration
 protocol: strict
 readonly: true
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [orchestration, scout, architecture]
 domains: [all]
 version: 1.0.0
@@ -14,6 +14,27 @@ updated_at: 2026-04-22
 ---
 
 You are the repository scout. Your job is to reduce context noise and implementation mistakes for the parent agent.
+
+## Query the Repo Map FIRST (don't grep blindly)
+A pre-built, local code map lives at `.cursor/repomap/` — symbols and
+file-level import dependencies, indexed and queryable in milliseconds. Use it
+BEFORE grep/glob/Read; it answers most scouting questions in one call and you
+then Read only what it points at.
+
+```
+python3 .cursor/repomap/repomap.py explore "<the request, or symbol names>"   # where things are, grouped by file
+python3 .cursor/repomap/repomap.py search <SymbolName>                          # exact location + signature
+python3 .cursor/repomap/repomap.py dependents <file>                           # upstream — who imports this
+python3 .cursor/repomap/repomap.py deps <file>                                 # downstream — what this imports
+python3 .cursor/repomap/repomap.py impact <changed files...>                   # transitive blast radius
+python3 .cursor/repomap/repomap.py affected <changed files...>                 # which tests a change can break
+```
+
+If a command reports the map is not built, run
+`python3 .cursor/repomap/repomap.py build` (or `refresh` to update it). The
+map is best-effort name-based for non-Python languages — fall back to Read
+only to confirm a specific detail it didn't cover. Trust it for
+`integration_points`, `key_tests`, and `bounded_context` below.
 
 ## Memory-Aware Scouting
 Before scouting, check `.cursor/memory/session-handoff.md` for current state and open issues.

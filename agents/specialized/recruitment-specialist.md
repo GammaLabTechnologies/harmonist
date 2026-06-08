@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [recruiting, architecture, content-creation, experiment-tracking, trend-research, observability, feishu, strategy, infra, performance]
 domains: [all]
 distinguishes_from: [corporate-training-designer, specialized-french-consulting-market]

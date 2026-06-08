@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [blockchain, security, audit, defi, smart-contracts, authz, nft, smart-contract-audit, threat-modeling, secrets]
 domains: [blockchain]
 distinguishes_from: [security-reviewer, engineering-security-engineer, engineering-solidity-smart-contract-engineer]

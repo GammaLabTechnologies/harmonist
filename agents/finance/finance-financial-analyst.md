@@ -6,7 +6,7 @@ category: finance
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [data-engineering, analytics-reporting, fpa, strategy, ml, pipeline-analysis, growth, observability]
 domains: [all]
 version: 1.0.0

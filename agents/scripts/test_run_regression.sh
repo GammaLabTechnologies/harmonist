@@ -258,6 +258,32 @@ elapsed=$((end_ts - start_ts))
 [[ "$elapsed" -lt "5" ]] && ok "timeout not retried (elapsed=${elapsed}s)" || \
   ko "timeout was retried (elapsed=${elapsed}s)"
 
+# ---------------------------------------------------------------------------
+# 9. Partial run (skipping the detected test step) does NOT satisfy the gate
+# ---------------------------------------------------------------------------
+
+printf "\n=== 9: partial run does not flip last_regression_ok ===\n"
+part_proj="$TMP/partial-proj"
+mkdir -p "$part_proj/.cursor/hooks/.state"
+cat > "$part_proj/Makefile" <<'EOF'
+test:
+	@echo "tests would run here"
+lint:
+	@echo "lint ok"
+.PHONY: test lint
+EOF
+echo '{"session_id":"1","task_seq":0}' > "$part_proj/.cursor/hooks/.state/session.json"
+set +e
+AGENT_PACK_HOOKS_STATE="$part_proj/.cursor/hooks/.state/session.json" \
+  python3 "$RUNNER" --project "$part_proj" --steps lint >/tmp/partial.out 2>&1
+rc=$?
+set -e
+[[ "$rc" == "0" ]] && ok "lint-only run exits 0 (lint passed)" || ko "lint run exit=$rc"
+last_ok="$(python3 -c "import json;print(json.load(open('$part_proj/.cursor/hooks/.state/session.json')).get('last_regression_ok'))")"
+[[ "$last_ok" == "False" ]] && ok "test step skipped -> last_regression_ok=False" || \
+  ko "partial run wrongly set last_regression_ok=$last_ok"
+/usr/bin/grep -q "partial run" /tmp/partial.out && ok "output notes the partial run" || ko "no partial-run note"
+
 echo
 echo "  passed: $pass  failed: $fail"
 [[ "$fail" -eq 0 ]] || exit 1

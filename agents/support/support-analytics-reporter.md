@@ -6,7 +6,7 @@ category: support
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [data-science, data-engineering, analytics-reporting, reporting, experiment-tracking, ml, strategy, observability, growth, qa]
 domains: [all]
 version: 1.0.0

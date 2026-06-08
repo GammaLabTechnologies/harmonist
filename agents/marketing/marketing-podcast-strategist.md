@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [growth, content-creation, strategy, community-building, wechat, observability, template, infra]
 domains: [all]
 distinguishes_from: [marketing-content-creator, marketing-video-optimization-specialist, marketing-social-media-strategist]

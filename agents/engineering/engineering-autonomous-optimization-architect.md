@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [performance, security, performance-testing, experiment-tracking, infra-maintenance, api, ai]
 domains: [all]
 version: 1.0.0

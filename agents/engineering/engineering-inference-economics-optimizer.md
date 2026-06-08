@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [llm, finops, observability, ai, strategy, architecture, caching, saas]
 domains: [all]
 distinguishes_from: [engineering-autonomous-optimization-architect, engineering-ai-engineer, engineering-llm-evaluation-harness]

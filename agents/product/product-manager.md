@@ -6,7 +6,7 @@ category: product
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [product-management, strategy, saas, ux-research, next, observability, tracking, api]
 domains: [all]
 version: 1.0.0

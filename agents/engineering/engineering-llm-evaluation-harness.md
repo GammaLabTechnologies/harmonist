@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [llm, llm-eval, qa, ai, data-science, observability, strategy, regression, caching]
 domains: [all]
 distinguishes_from: [engineering-ai-engineer, design-image-prompt-engineer, qa-verifier]

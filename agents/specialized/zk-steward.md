@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [knowledge-management, zk-proofs, ai, growth, strategy]
 domains: [all]
 version: 1.0.0

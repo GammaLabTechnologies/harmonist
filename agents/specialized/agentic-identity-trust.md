@@ -6,7 +6,7 @@ category: specialized
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [identity-engineering, auth, compliance-audit, soc2, threat-modeling, authz, audit, infra, python, ai]
 domains: [all]
 version: 1.0.0

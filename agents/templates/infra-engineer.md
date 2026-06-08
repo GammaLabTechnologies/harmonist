@@ -5,7 +5,7 @@ category: engineering
 protocol: strict
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [engineering, infra, devops, docker, ci-cd, deployment]
 domains: [all]
 ---

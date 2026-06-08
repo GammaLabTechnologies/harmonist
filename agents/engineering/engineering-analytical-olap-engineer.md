@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [analytical-db, vector-db, data-engineering, backend, architecture, performance, strategy, reporting, postgres]
 domains: [all]
 distinguishes_from: [engineering-database-optimizer, engineering-data-engineer, engineering-rag-pipeline-architect]

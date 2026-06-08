@@ -6,7 +6,7 @@ category: game-development
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [performance, gamedev, technical-art, ml, unity, mobile, python, infra, observability]
 domains: [gamedev]
 version: 1.0.0

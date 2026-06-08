@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [seo, baidu, growth, china-market, content-creation, mobile, strategy, audit]
 domains: [china-market]
 distinguishes_from: [marketing-seo-specialist, marketing-ai-citation-strategist, marketing-zhihu-strategist]

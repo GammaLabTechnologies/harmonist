@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [event-driven, backend, architecture, reliability, observability, infra, kafka, scaling]
 domains: [all]
 distinguishes_from: [engineering-backend-architect, engineering-sre, engineering-graphql-grpc-architect]

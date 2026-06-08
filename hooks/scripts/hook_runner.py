@@ -50,6 +50,7 @@ if _asp_sys.version_info < (3, 9):
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
+import calendar
 import json
 import os
 import re
@@ -85,6 +86,34 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 # --------------------------------------------------------------------------- config
 
+# Conservative patterns for genuinely destructive / high-risk shell commands.
+# The beforeShellExecution hook asks for human confirmation (HITL) before
+# these run. Tuned to catch catastrophic intent (root/home/wildcard deletes,
+# force-push, disk wipes, fork bombs, pipe-to-shell) while leaving routine
+# commands (e.g. `rm -rf node_modules`) alone.
+DEFAULT_DANGEROUS_COMMAND_PATTERNS = [
+    # rm with a recursive/force flag (short -rf/-fr or long
+    # --recursive/--force/--no-preserve-root, in ANY order) targeting an
+    # absolute path, home, wildcard, or '.'. Matches the catastrophic forms
+    # the old single-dash pattern missed: `rm -rf /usr`, `rm --recursive
+    # --force /`, `rm -rf --no-preserve-root /`.
+    r"(?:^|[\s;&|(])rm\s+(?:-[a-zA-Z]*[rf][a-zA-Z]*|--recursive|--force|--no-preserve-root)(?:\s+(?:-[a-zA-Z-]+|--[a-zA-Z-]+))*\s+(?:/(?:\s|$|/|\*|[a-zA-Z])|~|\$HOME|\*|\.(?:\s|$|/))",
+    r"\bgit\s+push\b[^\n]*(?:--force(?!-with-lease)|\s-f\b)",
+    r"\bgit\s+reset\s+--hard\b",
+    r"\bgit\s+clean\s+-[a-zA-Z]*f",
+    # dd reading or writing a raw device, regardless of if=/of= order:
+    # `dd if=/dev/zero of=/dev/sda` AND `dd of=/dev/sda if=/dev/zero`.
+    r"\bdd\s+[^\n]*\b(?:if|of)=/",
+    r"\bmkfs[.\s]",
+    r":\(\)\s*\{\s*:\s*\|\s*:?\s*&\s*\}\s*;\s*:",
+    r"\b(?:shutdown|reboot|halt|poweroff)\b",
+    r"\bchmod\s+-R\s+0?777\b",
+    r">\s*/dev/(?:sd|nvme|disk|hd)",
+    r"\b(?:curl|wget)\b[^|\n]*\|\s*(?:sudo\s+)?(?:ba|z|k)?sh\b",
+    r"\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE|SCHEMA)\b",
+]
+
+
 DEFAULT_CFG = {
     "require_qa_verifier": True,
     "require_any_reviewer": True,
@@ -111,6 +140,10 @@ DEFAULT_CFG = {
         "code-quality-auditor",
         "sre-observability",
         "bg-regression-runner",
+        # On-demand strict review gate (installed when a project has UI):
+        # credited as a reviewer when the orchestrator invokes it on a
+        # frontend/accessibility change.
+        "wcag-a11y-gate",
     ],
     "required_reviewer_slug": "qa-verifier",
     "require_regression_passed": False,
@@ -128,13 +161,53 @@ DEFAULT_CFG = {
         r"(?i)(^|/)\.editorconfig$",
         r"(?i)(^|/)\.prettier(rc|ignore)[\-.]?",
         r"(?i)(^|/)\.eslint(rc|ignore)[\-.]?",
-        r"(?i)docs/",
-        r"(?i)documentation/",
+        # docs/ and documentation/ are only "trivial" for documentation /
+        # asset content -- NOT for code that happens to live under them
+        # (e.g. docs/conf.py or src/docs/handler.py), which must still be
+        # reviewed. The bare substring `docs/` let any such code file skip
+        # the gate (fail-open).
+        r"(?i)(^|/)docs/.*\.(?:md|mdx|rst|txt|adoc|markdown|png|jpe?g|gif|svg|webp|ico|pdf)$",
+        r"(?i)(^|/)documentation/.*\.(?:md|mdx|rst|txt|adoc|markdown|png|jpe?g|gif|svg|webp|ico|pdf)$",
     ],
     "protocol_skip_warn_enabled": True,
     "protocol_skip_warn_threshold_count": 5,
     "protocol_skip_warn_threshold_ratio": 0.25,
     "loop_limit": 3,
+    # Mechanical cap on how many subagents may run CONCURRENTLY within one
+    # task. Unbounded parallel fan-out (mesh topology) can spawn dozens of
+    # heavyweight subagents at once and exhaust RAM -- especially now that
+    # agents run on a 1M-context model. The subagentStart hook denies a
+    # launch once this many subagents are already open. Set to 0 (or a
+    # negative number) to disable the cap.
+    "max_concurrent_subagents": 3,
+    # A subagent whose start is older than this many seconds with no
+    # observed stop is treated as finished for the purpose of the
+    # concurrency count, so a missed subagentStop can never permanently
+    # lock out new launches.
+    "subagent_stale_seconds": 900,
+    # Impact-aware gate (opt-in, like require_regression_passed). When on,
+    # the stop hook uses the repo map to compute the test files affected by
+    # this task's edits and refuses to finish until a regression run has
+    # passed (last_regression_ok) when affected tests exist.
+    "require_affected_tests": False,
+    # Warn at sessionStart when the repo map is stale (files changed since
+    # the last build/refresh). Purely informational; never blocks.
+    "repomap_staleness_warn": True,
+    # Delegation-context gate (opt-in). When on, subagentStart denies a
+    # delegation whose handoff text (prompt minus the AGENT: marker) is
+    # shorter than min_delegation_chars -- forcing the orchestrator to pass
+    # real context (target/scope/sub-goal/success) instead of making the
+    # subagent guess and redo work.
+    "require_delegation_context": False,
+    "min_delegation_chars": 80,
+    # Human-in-the-loop on dangerous shell commands. The beforeShellExecution
+    # hook matches the command against dangerous_command_patterns and returns
+    # `ask` (human confirms) or `deny`. On by default with `ask` -- low
+    # friction (only the rare destructive command pauses). Set hitl_enabled
+    # false to disable, or override the pattern list per project.
+    "hitl_enabled": True,
+    "dangerous_command_action": "ask",
+    "dangerous_command_patterns": DEFAULT_DANGEROUS_COMMAND_PATTERNS,
 }
 
 
@@ -142,7 +215,7 @@ def read_cfg() -> dict:
     cfg = dict(DEFAULT_CFG)
     if CFG_FILE.exists():
         try:
-            cfg.update(json.loads(CFG_FILE.read_text()))
+            cfg.update(json.loads(CFG_FILE.read_text(encoding="utf-8")))
         except Exception:
             pass
     return cfg
@@ -183,7 +256,7 @@ def load_state() -> dict:
         save_state(state)
         return state
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         state = _bootstrap_state()
         save_state(state)
@@ -193,7 +266,8 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     path = _resolve_state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=path.parent)
+    tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=path.parent,
+                                      encoding="utf-8")
     json.dump(state, tmp, indent=2)
     tmp.close()
     os.replace(tmp.name, path)
@@ -204,6 +278,69 @@ def reset_state() -> dict:
     if path.exists():
         path.unlink()
     return load_state()
+
+
+# --------------------------------------------------------------------------- locking
+#
+# Cursor fires hooks for parallel tool calls concurrently, and every
+# state-mutating phase does a read-modify-write on session.json. Without
+# serialization, two concurrent processes can both read the same state and the
+# last writer wins -- silently dropping a recorded write (the stop gate then
+# under-counts and can fail OPEN) or letting two subagentStart calls both clear
+# the concurrency cap. We take an OS advisory lock on a sidecar <state>.lock for
+# the whole phase so the read-modify-write is atomic across processes.
+# Best-effort: if locking is unavailable we proceed (single-process behaviour is
+# unchanged). os.replace alone gives an atomic file *swap*, not an atomic
+# transaction across the read.
+
+
+def _acquire_state_lock():
+    path = _resolve_state_path()
+    lock_path = path.parent / (path.name + ".lock")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(lock_path, "a+")
+    except Exception:
+        return None
+    try:
+        if os.name == "nt":
+            import msvcrt
+            fh.seek(0)
+            for _ in range(600):  # spin up to ~30s; normally instant
+                try:
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(0.05)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+    except Exception:
+        pass
+    return fh
+
+
+def _release_state_lock(fh) -> None:
+    if fh is None:
+        return
+    try:
+        if os.name == "nt":
+            import msvcrt
+            try:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            except Exception:
+                pass
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+    finally:
+        try:
+            fh.close()
+        except Exception:
+            pass
 
 
 def log_event(msg: str) -> None:
@@ -229,7 +366,7 @@ def bump_telemetry(keypath: str, inc: int = 1, cfg: dict | None = None) -> None:
         tel_dir.mkdir(parents=True, exist_ok=True)
         tel_file = tel_dir / "agent-usage.json"
         try:
-            data = json.loads(tel_file.read_text()) if tel_file.exists() else {}
+            data = json.loads(tel_file.read_text(encoding="utf-8")) if tel_file.exists() else {}
         except Exception:
             data = {}
         data.setdefault("started_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
@@ -245,7 +382,8 @@ def bump_telemetry(keypath: str, inc: int = 1, cfg: dict | None = None) -> None:
         else:
             cur[last] = int(cur.get(last, 0)) + inc
         data["last_update_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(tel_dir))
+        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(tel_dir),
+                                          encoding="utf-8")
         json.dump(data, tmp, indent=2, sort_keys=True)
         tmp.close()
         os.replace(tmp.name, tel_file)
@@ -279,6 +417,76 @@ def memory_cli_path() -> Path | None:
     return None
 
 
+def repomap_cli_path() -> "Path | None":
+    """Locate the repo-map engine. Prefer the installed copy under the
+    project's .cursor/repomap/, fall back to the pack's source script."""
+    env = os.environ.get("AGENT_PACK_REPOMAP_CLI")
+    if env and Path(env).exists():
+        return Path(env)
+    cur = HOOKS_DIR
+    for _ in range(6):
+        cand = cur / ".cursor" / "repomap" / "repomap.py"
+        if cand.exists():
+            return cand
+        cur = cur.parent
+    pack_rm = HOOKS_DIR.parent / "agents" / "scripts" / "repomap.py"
+    if pack_rm.exists():
+        return pack_rm
+    return None
+
+
+def _strip_dot_slash(s: str) -> str:
+    """Remove a leading './' prefix (repeated) WITHOUT stripping leading
+    dots/slashes from real names. str.lstrip('./') would mangle '.github/...'
+    into 'github/...' and '.eslintrc' into 'eslintrc' -- corrupting repo-map
+    keys so the affected-tests lookup returns nothing (fail-open)."""
+    while s.startswith("./"):
+        s = s[2:]
+    return s
+
+
+def _relativize(paths: list[str], root: Path) -> list[str]:
+    """Best-effort: express each path relative to `root` (POSIX), so they
+    match the repo map's project-relative keys."""
+    out: list[str] = []
+    for p in paths:
+        if not p:
+            continue
+        try:
+            pp = Path(p)
+            if pp.is_absolute():
+                out.append(pp.resolve().relative_to(root.resolve()).as_posix())
+            else:
+                out.append(_strip_dot_slash(pp.as_posix()))
+        except Exception:
+            out.append(_strip_dot_slash(p.replace("\\", "/")))
+    return out
+
+
+def affected_tests_for(paths: list[str], project_root: Path) -> "list[str] | None":
+    """Return the test files affected by `paths` via the repo map, or None
+    if the map is unavailable. Best-effort, short timeout."""
+    cli = repomap_cli_path()
+    if cli is None or not paths:
+        return None
+    rel = _relativize(paths, project_root)
+    try:
+        r = subprocess.run(
+            [sys.executable, str(cli), "affected", *rel,
+             "--project", str(project_root), "--json"],
+            capture_output=True, text=True, timeout=20,
+        )
+    except Exception:
+        return None
+    if r.returncode not in (0, 1):  # 1 = "(none)" which is valid/empty
+        return None
+    try:
+        data = json.loads(r.stdout or "[]")
+        return data if isinstance(data, list) else None
+    except Exception:
+        return None
+
+
 # --------------------------------------------------------------------------- hook response helpers
 
 
@@ -298,6 +506,44 @@ def emit_followup(message: str) -> int:
 
 def emit_additional_context(message: str) -> int:
     return emit({"additional_context": message})
+
+
+def emit_deny(user_message: str, agent_message: str = "") -> int:
+    """Block the pending action (e.g. a subagent launch). Per Cursor's hook
+    contract, subagentStart / beforeShellExecution honour
+    {"permission": "deny"}."""
+    resp = {"permission": "deny", "user_message": user_message}
+    if agent_message:
+        resp["agent_message"] = agent_message
+    return emit(resp)
+
+
+def _iso_to_epoch(ts: str) -> "float | None":
+    """Parse a UTC '%Y-%m-%dT%H:%M:%SZ' timestamp to epoch seconds."""
+    if not ts:
+        return None
+    try:
+        return calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
+    except Exception:
+        return None
+
+
+def count_active_subagents(state: dict, cfg: dict) -> int:
+    """Number of subagents that are currently OPEN (started, not stopped)
+    and not older than the stale threshold. Stale entries are ignored so a
+    missed subagentStop can't permanently inflate the count."""
+    stale = int(cfg.get("subagent_stale_seconds", 900) or 0)
+    now = time.time()
+    n = 0
+    for call in state.get("subagent_calls", []):
+        if call.get("stopped_at") or call.get("completed"):
+            continue
+        if stale > 0:
+            started = _iso_to_epoch(call.get("started_at") or call.get("at") or "")
+            if started is not None and (now - started) > stale:
+                continue
+        n += 1
+    return n
 
 
 # --------------------------------------------------------------------------- helpers shared by write + subagent hooks
@@ -334,6 +580,52 @@ def _extract_slug_from_prompt(prompt: str) -> str:
     return ""
 
 
+def _extract_prompt_text(input_json: dict) -> str:
+    """Pull the delegation prompt from whichever field Cursor populated.
+    Mirrors record-subagent-start.sh so the Python and POSIX paths credit the
+    same reviewer and apply the delegation gate to the same text."""
+    for key in ("prompt", "task", "description", "input", "message"):
+        v = input_json.get(key)
+        if isinstance(v, str) and v.strip():
+            return v
+    ti = input_json.get("tool_input")
+    if isinstance(ti, dict):
+        for key in ("prompt", "task", "description"):
+            v = ti.get(key)
+            if isinstance(v, str) and v.strip():
+                return v
+    return ""
+
+
+def _final_message_text(input_json: dict) -> str:
+    """Best-effort extraction of the agent's FINAL message from the stop hook
+    input. We deliberately do NOT scan the whole serialized input: it echoes
+    the sessionStart seed and prior followup text, both of which literally
+    contain the 'PROTOCOL-SKIP: <one-line reason>' template -- scanning the
+    whole blob would let that template fail the gate OPEN."""
+    parts: list[str] = []
+    for k in ("response", "final_message", "assistant_message", "message",
+              "text", "content", "output", "last_message"):
+        v = input_json.get(k)
+        if isinstance(v, str) and v:
+            parts.append(v)
+    return "\n".join(parts)
+
+
+def _detect_protocol_skip(input_json: dict) -> "str | None":
+    text = _final_message_text(input_json)
+    if not text:
+        return None
+    for m in re.finditer(r"PROTOCOL-SKIP:\s*([^\n\r\"]+)", text):
+        reason = m.group(1).strip()
+        # Ignore the instruction template echoed back verbatim
+        # ('PROTOCOL-SKIP: <one-line reason>').
+        if reason.startswith("<"):
+            continue
+        return reason
+    return None
+
+
 def _load_agent_catalog() -> dict[str, dict]:
     """Best-effort lookup of installed .cursor/agents/*.md files for
     capability scoping (readonly flag etc.). Returns a dict keyed by
@@ -349,7 +641,7 @@ def _load_agent_catalog() -> dict[str, dict]:
             continue
         for md in d.rglob("*.md"):
             try:
-                text = md.read_text()
+                text = md.read_text(encoding="utf-8", errors="replace")
             except Exception:
                 continue
             fm = {}
@@ -381,7 +673,7 @@ def phase_session_start(input_json: dict) -> int:
     incidents_banner = ""
     try:
         if INCIDENTS_FILE.exists():
-            data = json.loads(INCIDENTS_FILE.read_text())
+            data = json.loads(INCIDENTS_FILE.read_text(encoding="utf-8"))
             incidents = data.get("incidents") or []
             unsurfaced = [i for i in incidents if not i.get("surfaced_at")]
             if unsurfaced:
@@ -405,7 +697,9 @@ def phase_session_start(input_json: dict) -> int:
                 incidents_banner = "\n".join(lines)
                 for inc in incidents:
                     inc.setdefault("surfaced_at", now)
-                tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(INCIDENTS_FILE.parent))
+                tmp = tempfile.NamedTemporaryFile("w", delete=False,
+                                                  dir=str(INCIDENTS_FILE.parent),
+                                                  encoding="utf-8")
                 json.dump(data, tmp, indent=2)
                 tmp.close()
                 os.replace(tmp.name, INCIDENTS_FILE)
@@ -421,7 +715,7 @@ def phase_session_start(input_json: dict) -> int:
     skip_warning = ""
     if cfg.get("protocol_skip_warn_enabled", True) and TELEMETRY_FILE.exists():
         try:
-            tel = json.loads(TELEMETRY_FILE.read_text())
+            tel = json.loads(TELEMETRY_FILE.read_text(encoding="utf-8"))
             s = tel.get("summaries") or {}
             skips = int(s.get("protocol_skips", 0))
             sat = int(s.get("gate_allow_satisfied", 0))
@@ -440,6 +734,29 @@ def phase_session_start(input_json: dict) -> int:
                 )
         except Exception:
             pass
+
+    # Repo-map staleness banner (informational; never blocks).
+    repomap_banner = ""
+    if cfg.get("repomap_staleness_warn", True):
+        rm = repomap_cli_path()
+        if rm is not None:
+            try:
+                r = subprocess.run(
+                    [sys.executable, str(rm), "status", "--project", str(Path.cwd()), "--json"],
+                    capture_output=True, text=True, timeout=15,
+                )
+                data = json.loads(r.stdout or "{}")
+                if not data.get("built"):
+                    repomap_banner = (
+                        "\ni  Repo map not built yet. repo-scout is much cheaper "
+                        "with it:\n   python3 .cursor/repomap/repomap.py build\n")
+                elif int(data.get("pending", 0)) > 0:
+                    repomap_banner = (
+                        f"\ni  Repo map is stale: {data['pending']} file(s) changed "
+                        "since the last index. Refresh before scouting:\n"
+                        "   python3 .cursor/repomap/repomap.py refresh\n")
+            except Exception:
+                repomap_banner = ""
 
     # Latest memory entries.
     latest_state = ""
@@ -486,7 +803,7 @@ def phase_session_start(input_json: dict) -> int:
     active_cid = state.get("active_correlation_id", "unknown")
     msg = (
         f"harmonist enforcement hooks are active in this session.\n"
-        f"{skip_warning}{incidents_banner}\n"
+        f"{skip_warning}{incidents_banner}{repomap_banner}\n"
         f"Active correlation_id for this task: {active_cid}\n\n"
         "Mandatory protocol reminders:\n"
         "1. Project AGENTS.md OVERRIDES any persona agent advice. When a persona\n"
@@ -523,44 +840,111 @@ def phase_after_file_edit(input_json: dict) -> int:
     path = str(input_json.get("file_path") or input_json.get("path") or "")
     if not path:
         return emit_allow()
-    if _is_skipped_path(path, cfg):
-        return emit_allow()
-    # Capability scoping: if any currently-active subagent is readonly,
-    # this write is a violation.
-    catalog = _load_agent_catalog()
-    active_calls = state.get("subagent_calls", [])
-    readonly_violators = []
-    for call in active_calls:
-        if call.get("stopped_at"):
-            continue
-        slug = (call.get("slug") or "").lower()
-        info = catalog.get(slug) or {}
-        if info.get("readonly") is True:
-            readonly_violators.append(slug)
-    if readonly_violators:
-        state.setdefault("readonly_violations", []).append({
+
+    # Memory-file writes are tracked separately and BEFORE the skip check
+    # (mirrors record-write.sh). `.cursor/` is in skip_path_patterns, so a
+    # relative handoff path like `.cursor/memory/session-handoff.md` would
+    # otherwise be skipped here and could never satisfy the stop gate's
+    # session-handoff requirement -- the gate would loop to exhaustion on
+    # every code task on the active (Python) path.
+    mem_paths = cfg.get("memory_paths", [])
+    is_memory = path in mem_paths or any(
+        path.endswith(m.split("/")[-1]) for m in mem_paths
+    )
+    if is_memory:
+        state.setdefault("memory_updates", []).append({
             "path": path,
             "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "violator_slugs": sorted(set(readonly_violators)),
         })
+        save_state(state)
+        return emit_allow()
+
+    if _is_skipped_path(path, cfg):
+        return emit_allow()
+
+    # Capability scoping: a readonly subagent writing files is a violation.
+    # Only read the agent catalog when a subagent is actually open -- avoids
+    # scanning ~150 agent files on every routine edit.
+    active_calls = [
+        c for c in state.get("subagent_calls", [])
+        if not (c.get("stopped_at") or c.get("completed"))
+    ]
+    if active_calls:
+        catalog = _load_agent_catalog()
+        readonly_violators = []
+        for call in active_calls:
+            slug = (call.get("slug") or "").lower()
+            info = catalog.get(slug) or {}
+            if info.get("readonly") is True:
+                readonly_violators.append(slug)
+        if readonly_violators:
+            state.setdefault("readonly_violations", []).append({
+                "path": path,
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "violator_slugs": sorted(set(readonly_violators)),
+            })
+
     state.setdefault("writes", []).append({
         "path": path,
         "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })
     save_state(state)
-    # Also record any memory-file write for the stop gate's handoff check.
-    for memp in cfg.get("memory_paths", []):
-        if path.endswith(memp) or path.endswith(memp.lstrip(".")):
-            state.setdefault("memory_updates", []).append({"path": path})
-            save_state(state)
-            break
     return emit_allow()
 
 
 def phase_subagent_start(input_json: dict) -> int:
     state = load_state()
-    prompt = str(input_json.get("prompt") or "")
+    cfg = read_cfg()
+
+    # Mechanical concurrency cap: refuse to launch another subagent while
+    # `max_concurrent_subagents` are already running. This turns the
+    # advisory "Max N concurrent" rule into a real gate and is the primary
+    # guard against unbounded fan-out exhausting RAM.
+    cap = int(cfg.get("max_concurrent_subagents", 3) or 0)
+    if cap > 0:
+        active = count_active_subagents(state, cfg)
+        if active >= cap:
+            bump_telemetry("summaries.subagent_cap_denials", cfg=cfg)
+            log_event(f"subagentStart DENIED: {active} active >= cap {cap}")
+            msg = (
+                f"Concurrent-subagent limit reached: {active} subagent(s) are "
+                f"already running (max_concurrent_subagents={cap}). Running too "
+                "many subagents in parallel can exhaust memory, especially on a "
+                "1M-context model. Wait for an active subagent to finish, then "
+                "dispatch the next one (run them sequentially / in smaller "
+                "batches). To allow more, raise max_concurrent_subagents in "
+                ".cursor/hooks/config.json."
+            )
+            return emit_deny(msg, agent_message=msg)
+
+    prompt = _extract_prompt_text(input_json)
     slug = _extract_slug_from_prompt(prompt)
+
+    # Delegation-context gate (opt-in): a subagent only sees the text you hand
+    # it -- not your conversation. A marker-only / near-empty delegation makes
+    # the subagent guess and redo work. When require_delegation_context is on,
+    # deny a delegation whose handoff (prompt minus the AGENT: marker) is
+    # thinner than min_delegation_chars.
+    if slug and cfg.get("require_delegation_context", False):
+        body_text = re.sub(r"(?im)^\s*AGENT:\s*\S+\s*$", "", prompt)
+        body_text = re.sub(r"<!--\s*AGENT:[^>]*-->", "", body_text)
+        body_text = re.sub(r"<agent[^>]*>.*?</agent>", "", body_text, flags=re.IGNORECASE | re.DOTALL)
+        min_chars = int(cfg.get("min_delegation_chars", 80) or 0)
+        if len(body_text.strip()) < min_chars:
+            bump_telemetry("summaries.delegation_context_denials", cfg=cfg)
+            log_event(f"subagentStart DENIED: thin delegation to '{slug}' "
+                      f"({len(body_text.strip())} < {min_chars} chars)")
+            msg = (
+                f"Thin delegation to '{slug}'. A subagent does NOT see your "
+                "conversation — only the prompt you pass. Include the handoff "
+                "package: the target/scope, the single sub-goal, constraints "
+                "(authorization boundary, what NOT to do), and the success "
+                "criteria, plus the PROJECT PRECEDENCE preamble. Re-dispatch "
+                "with that context. (Disable via require_delegation_context in "
+                ".cursor/hooks/config.json.)"
+            )
+            return emit_deny(msg, agent_message=msg)
+
     if not slug:
         # No marker -- still record the call, but it cannot satisfy the
         # reviewer gate.
@@ -584,17 +968,32 @@ def phase_subagent_start(input_json: dict) -> int:
 def phase_subagent_stop(input_json: dict) -> int:
     state = load_state()
     cfg = read_cfg()
-    # We don't know which call stopped; close the oldest open call.
+    # We don't know which call stopped; close the most-recently-started open
+    # call (LIFO), matching record-subagent-stop.sh so the Python and POSIX
+    # paths credit the same slug when subagents overlap. Mark BOTH stopped_at
+    # and completed so the cap counter and gate agree no matter which path
+    # wrote the entry.
     calls = state.get("subagent_calls", [])
-    for call in calls:
-        if not call.get("stopped_at"):
-            call["stopped_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            slug = (call.get("slug") or "").lower()
-            if slug and slug in set(cfg.get("reviewer_slugs", [])):
-                seen = set(state.get("reviewers_seen", []))
-                seen.add(slug)
-                state["reviewers_seen"] = sorted(seen)
-            break
+    for call in reversed(calls):
+        if call.get("stopped_at") or call.get("completed"):
+            continue
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        call["stopped_at"] = now
+        call["completed"] = True
+        slug = (call.get("slug") or "").lower()
+        if slug and slug in set(cfg.get("reviewer_slugs", [])):
+            seen = set(state.get("reviewers_seen", []))
+            seen.add(slug)
+            state["reviewers_seen"] = sorted(seen)
+        # Capability scoping: drop the slug from the active-readonly list so
+        # writes after this invocation aren't flagged (parity with the .sh
+        # path, which tracks active_readonly_subagents).
+        if slug:
+            actives = state.get("active_readonly_subagents") or []
+            if slug in actives:
+                actives.remove(slug)
+                state["active_readonly_subagents"] = actives
+        break
     save_state(state)
     return emit_allow()
 
@@ -630,13 +1029,15 @@ def _persist_incident(state: dict, final_missing: list[str]) -> None:
         state["protocol_incidents"] = state["protocol_incidents"][-20:]
     try:
         if INCIDENTS_FILE.exists():
-            persisted = json.loads(INCIDENTS_FILE.read_text())
+            persisted = json.loads(INCIDENTS_FILE.read_text(encoding="utf-8"))
         else:
             persisted = {"incidents": []}
         persisted.setdefault("incidents", []).append(entry)
         if len(persisted["incidents"]) > 50:
             persisted["incidents"] = persisted["incidents"][-50:]
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(INCIDENTS_FILE.parent))
+        tmp = tempfile.NamedTemporaryFile("w", delete=False,
+                                          dir=str(INCIDENTS_FILE.parent),
+                                          encoding="utf-8")
         json.dump(persisted, tmp, indent=2)
         tmp.close()
         os.replace(tmp.name, INCIDENTS_FILE)
@@ -648,12 +1049,13 @@ def phase_stop(input_json: dict) -> int:
     cfg = read_cfg()
     state = load_state()
 
-    # PROTOCOL-SKIP marker detection.
-    raw = json.dumps(input_json) if input_json else ""
-    m = re.search(r"PROTOCOL-SKIP:\s*([^\n\r\"]+)", raw)
-    if m:
+    # PROTOCOL-SKIP marker detection -- scoped to the agent's final-message
+    # fields only (see _detect_protocol_skip; scanning the whole input would
+    # match the echoed seed/followup template and fail OPEN).
+    skip_reason = _detect_protocol_skip(input_json)
+    if skip_reason:
         state["protocol_skipped"] = True
-        state["protocol_skip_reason"] = m.group(1).strip()
+        state["protocol_skip_reason"] = skip_reason
         save_state(state)
 
     writes = state.get("writes", [])
@@ -751,6 +1153,23 @@ def phase_stop(input_json: dict) -> int:
             "Run: python3 harmonist/agents/scripts/run_regression.py" + suffix
         )
 
+    # Impact-aware gate: if this task edited code that the repo map says
+    # affects test files, require a passing regression run before finishing.
+    if cfg.get("require_affected_tests", False) and not last_regression_ok:
+        edited = [w.get("path", "") for w in writes]
+        affected = affected_tests_for(edited, Path.cwd())
+        if affected:
+            shown = ", ".join(affected[:6]) + (
+                f" (+{len(affected) - 6} more)" if len(affected) > 6 else "")
+            missing.append(
+                f"changed files affect {len(affected)} test file(s) that have "
+                f"not been verified this task: {shown}. Run them (or the "
+                "bg-regression-runner) and confirm green. The repo map computed "
+                "this blast radius: python3 .cursor/repomap/repomap.py affected "
+                "<changed files>."
+            )
+            bump_telemetry("summaries.affected_tests_gated", cfg=cfg)
+
     if cfg.get("require_session_handoff_update", True):
         handoff_paths = [
             e.get("path", "") for e in memory_updates
@@ -768,7 +1187,7 @@ def phase_stop(input_json: dict) -> int:
             if handoff_file is None:
                 missing.append(f"session-handoff.md at {handoff_paths[0]} not readable")
             else:
-                content = handoff_file.read_text()
+                content = handoff_file.read_text(encoding="utf-8", errors="replace")
                 if active_cid and f"correlation_id: {active_cid}" not in content:
                     missing.append(
                         f"session-handoff.md has no entry with correlation_id={active_cid} "
@@ -780,12 +1199,20 @@ def phase_stop(input_json: dict) -> int:
     if cli and memory_updates:
         validator = cli.with_name("validate.py")
         if validator.exists():
-            r = subprocess.run(
-                [sys.executable, str(validator), "--strict", "--quiet"],
-                capture_output=True, text=True,
-            )
-            if r.returncode != 0:
-                missing.append("memory files failed schema validation:\n" + r.stderr.strip())
+            try:
+                r = subprocess.run(
+                    [sys.executable, str(validator), "--strict", "--quiet"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if r.returncode != 0:
+                    missing.append("memory files failed schema validation:\n" + r.stderr.strip())
+            except subprocess.TimeoutExpired:
+                # Fail CLOSED: a hung validator must not let the gate pass.
+                missing.append("memory schema validation timed out (>30s); "
+                               "treating as NOT validated.")
+            except Exception as e:
+                missing.append("memory schema validation could not run "
+                               f"({e.__class__.__name__}); fix before finishing.")
 
     if not missing:
         return allow("protocol-satisfied")
@@ -828,12 +1255,44 @@ def phase_stop(input_json: dict) -> int:
 # --------------------------------------------------------------------------- entry
 
 
+def phase_before_shell_execution(input_json: dict) -> int:
+    """HITL gate: ask for human confirmation before a destructive command.
+    Returns {"permission": "ask"|"deny"} on a match, else allows."""
+    cfg = read_cfg()
+    if not cfg.get("hitl_enabled", True):
+        return emit({"permission": "allow"})
+    cmd = str(input_json.get("command") or input_json.get("cmd") or "")
+    if not cmd.strip():
+        return emit({"permission": "allow"})
+    patterns = cfg.get("dangerous_command_patterns") or DEFAULT_DANGEROUS_COMMAND_PATTERNS
+    for pat in patterns:
+        try:
+            if re.search(pat, cmd):
+                action = cfg.get("dangerous_command_action", "ask")
+                action = action if action in ("ask", "deny") else "ask"
+                bump_telemetry("summaries.hitl_gated", cfg=cfg)
+                log_event(f"beforeShellExecution {action}: matched {pat!r}")
+                msg = (
+                    "This command is destructive / high-risk and matched a "
+                    "safety guard:\n"
+                    f"  {cmd[:200]}\n"
+                    "A human should confirm it is intended before it runs. "
+                    "(Tune via dangerous_command_patterns / dangerous_command_action "
+                    "/ hitl_enabled in .cursor/hooks/config.json.)"
+                )
+                return emit({"permission": action, "user_message": msg, "agent_message": msg})
+        except re.error:
+            continue
+    return emit({"permission": "allow"})
+
+
 PHASES = {
-    "sessionStart":    phase_session_start,
-    "afterFileEdit":   phase_after_file_edit,
-    "subagentStart":   phase_subagent_start,
-    "subagentStop":    phase_subagent_stop,
-    "stop":            phase_stop,
+    "sessionStart":        phase_session_start,
+    "afterFileEdit":       phase_after_file_edit,
+    "subagentStart":       phase_subagent_start,
+    "subagentStop":        phase_subagent_stop,
+    "stop":                phase_stop,
+    "beforeShellExecution": phase_before_shell_execution,
 }
 
 
@@ -855,7 +1314,40 @@ def main(argv: list[str]) -> int:
         input_json = json.loads(raw) if raw.strip() else {}
     except Exception:
         input_json = {}
-    return PHASES[phase](input_json)
+
+    fn = PHASES[phase]
+    # beforeShellExecution doesn't touch session.json, so it needs no lock.
+    # Every other phase does a read-modify-write that must be serialized.
+    lock = _acquire_state_lock() if phase != "beforeShellExecution" else None
+    try:
+        return fn(input_json)
+    except Exception as e:
+        try:
+            log_event(f"{phase}: INTERNAL ERROR {e.__class__.__name__}: {e}")
+        except Exception:
+            pass
+        # The stop gate must FAIL CLOSED: an internal error must never let the
+        # turn end silently with no JSON (which Cursor reads as "no
+        # enforcement"). Emit a followup directly (no state writes -- state I/O
+        # may be exactly what broke); Cursor's loop_limit still caps repeats.
+        if phase == "stop":
+            return emit({"followup_message": (
+                "Protocol enforcement hit an internal error and cannot confirm "
+                "this task satisfied the gate. Treating it as NOT satisfied "
+                "(fail-closed). Re-run your final step; if this persists, "
+                "inspect .cursor/hooks/.state/activity.log. "
+                f"(internal: {e.__class__.__name__})"
+            )})
+        if phase == "beforeShellExecution":
+            # A broken safety gate should ASK for confirmation, not silently run.
+            return emit({"permission": "ask", "user_message": (
+                "The command safety gate errored; confirm this command is "
+                "safe before running it.")})
+        # Recorder phases (sessionStart/afterFileEdit/subagent*): a failure
+        # here must not wedge the agent -- allow, and rely on the stop gate.
+        return emit_allow()
+    finally:
+        _release_state_lock(lock)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ category: engineering
 protocol: persona
 readonly: false
 is_background: false
-model: inherit
+model: claude-opus-4-8
 tags: [devops, infra, web, reporting, analytics-reporting, authz, e2e-testing, finance-tracking, infra-maintenance, ml]
 domains: [all]
 version: 1.0.0

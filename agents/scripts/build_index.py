@@ -21,7 +21,7 @@ Output shape (stable, sorted, deterministic):
       "protocol": "persona",
       "readonly": false,
       "is_background": false,
-      "model": "inherit",
+      "model": "claude-opus-4-8",
       "tags": [...],
       "domains": [...],
       "path": "agents/<category>/.../<slug>.md"
@@ -60,7 +60,7 @@ from pathlib import Path
 # Re-use the parser from the migration script so both tools stay aligned.
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
-from migrate_schema import parse_frontmatter, NON_AGENT_DIRS, REPO_AGENTS  # noqa: E402
+from migrate_schema import parse_frontmatter, NON_AGENT_DIRS, REPO_AGENTS, DEFAULT_MODEL  # noqa: E402
 
 
 INDEX_PATH = REPO_AGENTS / "index.json"
@@ -116,7 +116,7 @@ def load_agent(md: Path) -> dict | None:
         "protocol": str(fields["protocol"]),
         "readonly": bool(fields.get("readonly", False)),
         "is_background": bool(fields.get("is_background", False)),
-        "model": str(fields.get("model", "inherit")),
+        "model": str(fields.get("model", DEFAULT_MODEL)),
         "tags": sorted(set(str(t) for t in tags)),
         "domains": sorted(set(str(d) for d in domains)),
         "distinguishes_from": dfrom,

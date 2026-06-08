@@ -156,13 +156,79 @@ if [[ -z "$PORT2" ]]; then
 fi
 
 set +e
-python3 "$WH" --project "$proj" --url "http://127.0.0.1:${PORT2:-0}" --timeout 3 >/dev/null 2>&1
+python3 "$WH" --project "$proj" --url "http://127.0.0.1:${PORT2:-0}" --timeout 3 --attempts 1 >/dev/null 2>&1
 rc=$?
 set -e
 [[ "$rc" == "1" ]] && ok "500 response -> exit 1" || ko "rc=$rc"
 
 kill $SERVER_PID 2>/dev/null || true
 wait $SERVER_PID 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 6. Disallowed URL schemes (SSRF / local-file) are refused -> exit 2
+# ---------------------------------------------------------------------------
+
+printf "\n=== 6: non-http(s) schemes are refused ===\n"
+secret_file="$TMP/secret.txt"
+echo "TOP SECRET" > "$secret_file"
+for bad in "file://$secret_file" "ftp://example.com/x" "gopher://x"; do
+  set +e
+  out="$(python3 "$WH" --project "$proj" --url "$bad" --timeout 3 2>&1)"
+  rc=$?
+  set -e
+  if [[ "$rc" == "2" ]]; then
+    ok "refuses scheme: ${bad%%:*}"
+  else
+    ko "scheme ${bad%%:*} not refused (rc=$rc): $out"
+  fi
+done
+# The refusal must NOT leak the local file's contents.
+set +e
+out="$(python3 "$WH" --project "$proj" --url "file://$secret_file" 2>&1)"
+set -e
+if printf '%s' "$out" | grep -q "TOP SECRET"; then
+  ko "file:// URL leaked local file contents"
+else
+  ok "file:// refusal does not read the local file"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Transient 5xx is retried then fails (server sees > 1 request)
+# ---------------------------------------------------------------------------
+
+printf "\n=== 7: transient 5xx is retried ===\n"
+python3 - <<'PY' &
+import http.server, socketserver, os
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a, **k): pass
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length", 0)); self.rfile.read(n)
+        # Count requests across the process lifetime.
+        try:
+            c = int(open("/tmp/hits.txt").read())
+        except Exception:
+            c = 0
+        open("/tmp/hits.txt", "w").write(str(c + 1))
+        self.send_response(503); self.end_headers(); self.wfile.write(b"busy")
+srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+print("PORT", srv.server_address[1], flush=True)
+srv.serve_forever()
+PY
+SERVER_PID=$!
+rm -f /tmp/hits.txt
+sleep 0.5
+PORT3=$(lsof -iTCP -sTCP:LISTEN -P -a -p $SERVER_PID 2>/dev/null | awk 'NR==2 {split($9,a,":"); print a[2]}')
+if [[ -z "$PORT3" ]]; then sleep 0.5; PORT3=$(lsof -iTCP -sTCP:LISTEN -P -a -p $SERVER_PID 2>/dev/null | awk 'NR==2 {split($9,a,":"); print a[2]}'); fi
+set +e
+python3 "$WH" --project "$proj" --url "http://127.0.0.1:${PORT3:-0}" --timeout 3 --attempts 3 >/dev/null 2>&1
+rc=$?
+set -e
+[[ "$rc" == "1" ]] && ok "exhausted retries on 503 -> exit 1" || ko "rc=$rc"
+hits="$(cat /tmp/hits.txt 2>/dev/null || echo 0)"
+[[ "${hits:-0}" -ge 2 ]] && ok "retried (server saw $hits requests)" || ko "no retry (server saw ${hits:-0})"
+kill $SERVER_PID 2>/dev/null || true
+wait $SERVER_PID 2>/dev/null || true
+rm -f /tmp/hits.txt
 
 echo
 echo "  passed: $pass  failed: $fail"

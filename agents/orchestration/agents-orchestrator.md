@@ -6,7 +6,7 @@ category: orchestration
 protocol: persona
 readonly: false
 is_background: false
-model: reasoning
+model: claude-opus-4-8
 tags: [orchestration, project-planning, strategy, scout]
 domains: [all]
 distinguishes_from: [repo-scout, project-management-studio-producer]

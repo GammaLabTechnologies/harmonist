@@ -6,7 +6,7 @@ category: marketing
 protocol: persona
 readonly: false
 is_background: false
-model: fast
+model: claude-opus-4-8
 tags: [zhihu, growth, strategy, observability, infra, performance]
 domains: [china-market]
 version: 1.0.0
