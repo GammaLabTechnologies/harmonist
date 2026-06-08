@@ -13,6 +13,8 @@ what the upgrade tool is allowed to touch.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-06-08
+
 ### Reliability & security hardening (full-audit pass)
 
 A codebase-wide audit (hooks runtime, install/upgrade lifecycle, memory, repo
