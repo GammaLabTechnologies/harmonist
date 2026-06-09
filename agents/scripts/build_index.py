@@ -168,7 +168,7 @@ def load_agent(md: Path) -> dict | None:
         "version": version,
         "updated_at": updated_at,
         "deprecated": deprecated,
-        "path": str(md.relative_to(REPO_AGENTS.parent)),
+        "path": md.relative_to(REPO_AGENTS.parent).as_posix(),
     }
 
 
@@ -286,7 +286,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     INDEX_PATH.write_text(payload, encoding="utf-8")
-    print(f"Wrote {INDEX_PATH.relative_to(REPO_AGENTS.parent)} — {index['counts']['total']} agents.")
+    print(f"Wrote {INDEX_PATH.relative_to(REPO_AGENTS.parent).as_posix()} — {index['counts']['total']} agents.")
     return 0
 
 
