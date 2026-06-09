@@ -45,10 +45,10 @@ cp "$victim" "$victim.bak"
 python3 - <<PY
 import pathlib, re
 p = pathlib.Path("$victim")
-t = p.read_text()
+t = p.read_text(encoding="utf-8")
 t2 = t.replace("(3, 9)", "(9, 99)", 1)
 assert t != t2, "tamper did not change source"
-p.write_text(t2)
+p.write_text(t2, encoding="utf-8")
 PY
 if python3 "$REFRESH" --check >/dev/null 2>&1; then
   ko "--check failed to detect tampering"
@@ -90,7 +90,7 @@ printf "\n=== 4: guard aborts on simulated Python 3.8 ===\n"
 # anchored to the pack root, not to whatever CWD the suite was started from.
 simulation_out="$(PACK="$PACK" python3 - 2>&1 <<'PY'
 import os, re, sys
-src = open(os.path.join(os.environ["PACK"], "agents/scripts/build_index.py")).read()
+src = open(os.path.join(os.environ["PACK"], "agents/scripts/build_index.py"), encoding="utf-8").read()
 m = re.search(r"# === PY-GUARD:BEGIN ===(.*?)# === PY-GUARD:END ===", src, re.DOTALL)
 body = m.group(1)
 ns = {}

@@ -234,7 +234,8 @@ def convert_antigravity(file_text: str, out_dir: Path) -> None:
         "source: community\n"
         f"date_added: '{TODAY}'\n"
         "---\n"
-        f"{body}\n"
+        f"{body}\n",
+        encoding="utf-8",
     )
 
 
@@ -250,7 +251,8 @@ def convert_gemini_cli(file_text: str, out_dir: Path) -> None:
         f"name: {slug}\n"
         f"description: {description}\n"
         "---\n"
-        f"{body}\n"
+        f"{body}\n",
+        encoding="utf-8",
     )
 
 
@@ -291,7 +293,8 @@ def convert_opencode(file_text: str, out_dir: Path) -> None:
         "mode: subagent\n"
         f"color: '{color}'\n"
         "---\n"
-        f"{body}\n"
+        f"{body}\n",
+        encoding="utf-8",
     )
 
 
@@ -308,7 +311,8 @@ def convert_cursor(file_text: str, out_dir: Path) -> None:
         'globs: ""\n'
         "alwaysApply: false\n"
         "---\n"
-        f"{body}\n"
+        f"{body}\n",
+        encoding="utf-8",
     )
 
 
@@ -361,15 +365,17 @@ def convert_openclaw(file_text: str, out_dir: Path) -> None:
     soul_content = "".join(soul_parts)
     agents_content = "".join(agents_parts)
 
-    (outdir / "SOUL.md").write_text(f"{soul_content}\n")
-    (outdir / "AGENTS.md").write_text(f"{agents_content}\n")
+    (outdir / "SOUL.md").write_text(f"{soul_content}\n", encoding="utf-8")
+    (outdir / "AGENTS.md").write_text(f"{agents_content}\n", encoding="utf-8")
 
     emoji = get_field("emoji", file_text)
     vibe = get_field("vibe", file_text)
     if emoji and vibe:
-        (outdir / "IDENTITY.md").write_text(f"# {emoji} {name}\n{vibe}\n")
+        (outdir / "IDENTITY.md").write_text(f"# {emoji} {name}\n{vibe}\n",
+                                            encoding="utf-8")
     else:
-        (outdir / "IDENTITY.md").write_text(f"# {name}\n{description}\n")
+        (outdir / "IDENTITY.md").write_text(f"# {name}\n{description}\n",
+                                            encoding="utf-8")
 
 
 def convert_qwen(file_text: str, out_dir: Path) -> None:
@@ -387,7 +393,8 @@ def convert_qwen(file_text: str, out_dir: Path) -> None:
             f"description: {description}\n"
             f"tools: {tools}\n"
             "---\n"
-            f"{body}\n"
+            f"{body}\n",
+            encoding="utf-8",
         )
     else:
         (outdir / f"{slug}.md").write_text(
@@ -395,7 +402,8 @@ def convert_qwen(file_text: str, out_dir: Path) -> None:
             f"name: {slug}\n"
             f"description: {description}\n"
             "---\n"
-            f"{body}\n"
+            f"{body}\n",
+            encoding="utf-8",
         )
 
 
@@ -411,10 +419,12 @@ def convert_kimi(file_text: str, out_dir: Path) -> None:
         "agent:\n"
         f"  name: {slug}\n"
         "  extend: default\n"
-        "  system_prompt_path: ./system.md\n"
+        "  system_prompt_path: ./system.md\n",
+        encoding="utf-8",
     )
     (outdir / "system.md").write_text(
-        f"# {name}\n\n{description}\n\n{body}\n"
+        f"# {name}\n\n{description}\n\n{body}\n",
+        encoding="utf-8",
     )
 
 
@@ -475,7 +485,7 @@ def _iter_agent_files() -> list[Path]:
 
 
 def _read_effective(path: Path, thin: bool, thin_dir: "Path | None") -> "str | None":
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     first_line = text.split("\n", 1)[0]
     if first_line != "---":
         return None
@@ -490,10 +500,10 @@ def _read_effective(path: Path, thin: bool, thin_dir: "Path | None") -> "str | N
         scratch = thin_dir / path.name
         extractor = HERE / "extract_essentials.py"
         r = subprocess.run([sys.executable, str(extractor), str(path)],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8")
         if r.returncode == 0:
-            scratch.write_text(r.stdout)
-            return scratch.read_text()
+            scratch.write_text(r.stdout, encoding="utf-8")
+            return scratch.read_text(encoding="utf-8")
     return text
 
 
@@ -537,18 +547,21 @@ def run_conversions(tool: str, out_dir: Path, thin: bool) -> int:
     if tool == "aider":
         outdir = out_dir / "aider"
         outdir.mkdir(parents=True, exist_ok=True)
-        (outdir / "CONVENTIONS.md").write_text(_aider_header() + "".join(aider_buf))
+        (outdir / "CONVENTIONS.md").write_text(_aider_header() + "".join(aider_buf),
+                                               encoding="utf-8")
         info("Wrote integrations/aider/CONVENTIONS.md")
     elif tool == "windsurf":
         outdir = out_dir / "windsurf"
         outdir.mkdir(parents=True, exist_ok=True)
-        (outdir / ".windsurfrules").write_text(_windsurf_header() + "".join(windsurf_buf))
+        (outdir / ".windsurfrules").write_text(_windsurf_header() + "".join(windsurf_buf),
+                                               encoding="utf-8")
         info("Wrote integrations/windsurf/.windsurfrules")
     elif tool == "gemini-cli":
         gdir = out_dir / "gemini-cli"
         gdir.mkdir(parents=True, exist_ok=True)
         (gdir / "gemini-extension.json").write_text(
-            '{\n  "name": "harmonist",\n  "version": "1.0.0"\n}\n'
+            '{\n  "name": "harmonist",\n  "version": "1.0.0"\n}\n',
+            encoding="utf-8",
         )
         info("Wrote gemini-extension.json")
     return count

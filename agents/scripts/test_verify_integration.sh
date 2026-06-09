@@ -100,7 +100,7 @@ sed \
 python3 - "$GOOD/AGENTS.md" <<'PY'
 import re, sys, pathlib
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 # Drop every <!-- CUSTOMIZE: ... --> comment.
 text = re.sub(r"<!--\s*CUSTOMIZE\b[^>]*-->\n?", "", text, flags=re.IGNORECASE)
 # Replace the template Invariants list with project-specific ones.
@@ -121,7 +121,7 @@ text = re.sub(
     count=1,
     flags=re.DOTALL,
 )
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 
 # Ensure index.json reference
@@ -188,12 +188,12 @@ unset AGENT_PACK_HOOKS_STATE
 python3 - "$GOOD/.cursor/memory/session-handoff.md" <<'PY'
 import sys, re, pathlib
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 text = re.sub(
     r"<!-- memory-entry:start -->\s*---\s*[^<]*?id: 0-0-state[^<]*?<!-- memory-entry:end -->\s*",
     "", text, count=1, flags=re.DOTALL,
 )
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 # hooks.json
 cp "$PACK/hooks/hooks.json" "$GOOD/.cursor/hooks.json"

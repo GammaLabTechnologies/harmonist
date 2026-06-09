@@ -102,14 +102,14 @@ CATEGORIES = ("test", "lint", "typecheck", "build")
 
 def _read(path: Path) -> str:
     try:
-        return path.read_text()
+        return path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return ""
 
 
 def _json_load(path: Path) -> dict:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
 

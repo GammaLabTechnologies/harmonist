@@ -148,7 +148,7 @@ def _load_vocab_file(path: Path) -> list[Signal]:
     where extend_builtin True means the rules APPEND to the built-in set,
     False means they REPLACE it."""
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
         raise RuntimeError(f"{path}: invalid JSON ({e})") from e
 
@@ -182,7 +182,7 @@ def _load_vocab_file(path: Path) -> list[Signal]:
 def _extend_builtin_flag(path: Path) -> bool:
     """Read `extend_builtin` flag from a vocab file (defaults to True)."""
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return True
     if isinstance(data, dict) and "extend_builtin" in data:

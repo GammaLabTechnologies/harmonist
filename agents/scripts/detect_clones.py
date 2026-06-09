@@ -133,7 +133,7 @@ BROAD_PAIRS = {
 def _load_layer(layer: str) -> set[str]:
     if not TAGS_PATH.exists():
         return set()
-    data = json.loads(TAGS_PATH.read_text())
+    data = json.loads(TAGS_PATH.read_text(encoding="utf-8"))
     return {
         name for name, meta in data.get("tags", {}).items()
         if isinstance(meta, dict) and meta.get("layer") == layer
@@ -158,7 +158,7 @@ def main(argv: list[str]) -> int:
         print(f"error: {INDEX_PATH} missing; run build_index.py first", file=sys.stderr)
         return 2
 
-    index = json.loads(INDEX_PATH.read_text())
+    index = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
     agents = {a["slug"]: a for a in index["agents"]}
 
     pair_counts: dict[frozenset, list[str]] = defaultdict(list)

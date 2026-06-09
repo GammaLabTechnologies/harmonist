@@ -309,13 +309,13 @@ def main(argv: list[str]) -> int:
             print(f"error: {MANIFEST_FILE} missing; run without --verify to create",
                   file=sys.stderr)
             return 2
-        problems = verify(root, MANIFEST_FILE.read_text())
+        problems = verify(root, MANIFEST_FILE.read_text(encoding="utf-8"))
         if args.json:
             print(json.dumps({"problems": problems,
                               "clean": not problems}, indent=2))
         else:
             if not problems:
-                print(f"  manifest clean: {len(parse_manifest(MANIFEST_FILE.read_text()))} entries verified.")
+                print(f"  manifest clean: {len(parse_manifest(MANIFEST_FILE.read_text(encoding='utf-8')))} entries verified.")
             else:
                 print(f"  {len(problems)} discrepancy(ies):")
                 for p in problems:
@@ -334,7 +334,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     if args.check:
-        old = MANIFEST_FILE.read_text() if MANIFEST_FILE.exists() else ""
+        old = MANIFEST_FILE.read_text(encoding="utf-8") if MANIFEST_FILE.exists() else ""
         if old == new_text:
             print(f"  manifest is up to date ({len(entries)} entries).")
             return 0
@@ -359,7 +359,7 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 1
 
-    MANIFEST_FILE.write_text(new_text)
+    MANIFEST_FILE.write_text(new_text, encoding="utf-8")
     print(f"  wrote {MANIFEST_FILE.relative_to(root)} with {len(entries)} entries.")
     return 0
 

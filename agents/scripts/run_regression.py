@@ -133,6 +133,7 @@ def _run_once(cmd: str, cwd: Path, timeout: int) -> "tuple[int, str, str, bool]"
     popen_kwargs: dict = dict(
         shell=True, cwd=str(cwd),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        encoding="utf-8", errors="replace",
     )
     if os.name == "nt":
         popen_kwargs["creationflags"] = getattr(
@@ -249,7 +250,7 @@ def _write_state(project: Path, results: list[dict], run_ok: bool,
     if sp is None or not sp.parent.exists():
         return None
     try:
-        data = json.loads(sp.read_text()) if sp.exists() else {}
+        data = json.loads(sp.read_text(encoding="utf-8")) if sp.exists() else {}
     except Exception:
         data = {}
     runs = data.setdefault("regression_results", [])
@@ -273,7 +274,8 @@ def _write_state(project: Path, results: list[dict], run_ok: bool,
     data["last_regression_at"] = runs[-1]["at"]
     try:
         import tempfile
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(sp.parent))
+        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=str(sp.parent),
+                                          encoding="utf-8")
         json.dump(data, tmp, indent=2, sort_keys=True)
         tmp.close()
         os.replace(tmp.name, sp)
@@ -287,7 +289,7 @@ def _write_state(project: Path, results: list[dict], run_ok: bool,
         if flaky_count > 0:
             tel = project / ".cursor" / "telemetry" / "agent-usage.json"
             if tel.parent.exists():
-                tel_data = (json.loads(tel.read_text())
+                tel_data = (json.loads(tel.read_text(encoding="utf-8"))
                             if tel.exists() else {})
                 tel_data.setdefault("summaries", {})
                 tel_data["summaries"]["regression_flaky_steps"] = (
@@ -297,7 +299,8 @@ def _write_state(project: Path, results: list[dict], run_ok: bool,
                 tel_data["last_update_at"] = time.strftime(
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 import tempfile as _t
-                tmp = _t.NamedTemporaryFile("w", delete=False, dir=str(tel.parent))
+                tmp = _t.NamedTemporaryFile("w", delete=False, dir=str(tel.parent),
+                                            encoding="utf-8")
                 json.dump(tel_data, tmp, indent=2, sort_keys=True)
                 tmp.close()
                 os.replace(tmp.name, tel)

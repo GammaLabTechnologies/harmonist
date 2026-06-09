@@ -161,7 +161,7 @@ def _pack_owned_paths(project: Path) -> list[Path]:
     prot = rdir / "protocol-enforcement.mdc"
     if prot.exists():
         try:
-            text = prot.read_text(errors="replace")
+            text = prot.read_text(encoding="utf-8", errors="replace")
             if "pack-owned: protocol-enforcement" in text:
                 paths.append(prot)
         except Exception:
@@ -210,7 +210,7 @@ def _snapshot_pre_deintegrate(project: Path) -> Path | None:
         "project":      str(project.resolve()),
         "file_count":   len(to_snap),
         "creations":    [],
-    }, indent=2, sort_keys=True) + "\n")
+    }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return tarball
 
 
@@ -221,7 +221,7 @@ def _strip_gitignore_block(project: Path) -> bool:
     p = project / ".gitignore"
     if not p.exists():
         return False
-    text = p.read_text(errors="replace")
+    text = p.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     keep: list[str] = []
     in_block = False
@@ -257,7 +257,7 @@ def _strip_gitignore_block(project: Path) -> bool:
     new_text = "\n".join(keep).rstrip("\n") + ("\n" if keep else "")
     if new_text == text:
         return False
-    p.write_text(new_text)
+    p.write_text(new_text, encoding="utf-8")
     return True
 
 

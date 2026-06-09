@@ -219,7 +219,8 @@ class CheckResult:
 
 
 def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=False)
+    return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
+                          encoding="utf-8", check=False)
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ def check_manifest(pack: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(script), "--verify"],
-            cwd=pack, capture_output=True, text=True, timeout=30,
+            cwd=pack, capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
     except Exception as e:
         return CheckResult(
@@ -279,7 +280,7 @@ def check_agent_freshness(pack: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(script), "--json"],
-            cwd=pack, capture_output=True, text=True, timeout=30,
+            cwd=pack, capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
     except Exception as e:
         return CheckResult(
@@ -323,7 +324,7 @@ def check_agent_safety(pack: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(script), "--json"],
-            cwd=pack, capture_output=True, text=True, timeout=60,
+            cwd=pack, capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
     except Exception as e:
         return CheckResult(
@@ -382,7 +383,7 @@ def check_py_guards_fresh(pack: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(refresh), "--check"],
-            cwd=pack, capture_output=True, text=True, timeout=10,
+            cwd=pack, capture_output=True, text=True, encoding="utf-8", timeout=10,
         )
     except Exception as e:
         return CheckResult(
@@ -461,7 +462,7 @@ def check_version(pack: Path) -> CheckResult:
     if not vf.exists():
         return CheckResult("version-file", False, "VERSION file missing",
                            "Restore the pack from a fresh clone.")
-    text = vf.read_text().strip()
+    text = vf.read_text(encoding="utf-8").strip()
     if not SEMVER_RE.match(text):
         return CheckResult("version-file", False,
                            f"VERSION='{text}' does not parse as SemVer",
@@ -543,7 +544,7 @@ def check_agent_count(pack: Path) -> CheckResult:
                            "agents/index.json missing",
                            "Run: python3 agents/scripts/build_index.py")
     try:
-        idx = json.loads(idx_path.read_text())
+        idx = json.loads(idx_path.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult("agent-count", False,
                            f"index.json not valid JSON: {e}",
@@ -649,7 +650,7 @@ def check_count_claims(pack: Path) -> CheckResult:
                            "agents/index.json missing",
                            "Run: python3 agents/scripts/build_index.py")
     try:
-        idx = json.loads(idx_path.read_text())
+        idx = json.loads(idx_path.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult("count-claims", False,
                            f"index.json not valid JSON: {e}",
@@ -667,7 +668,7 @@ def check_count_claims(pack: Path) -> CheckResult:
         if not fp.exists():
             continue
         try:
-            text = fp.read_text(errors="replace")
+            text = fp.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
         for pat in _TOTAL_CLAIM_PATTERNS:
@@ -869,7 +870,7 @@ def check_tags_json(pack: Path) -> CheckResult:
         return CheckResult("tags-json", False, "agents/tags.json missing",
                            "Re-clone.")
     try:
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult("tags-json", False, f"tags.json not valid JSON: {e}",
                            "Restore from upstream.")

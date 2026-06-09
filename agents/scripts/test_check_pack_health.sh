@@ -48,9 +48,9 @@ m1="$TMP/pack1"; mirror "$m1"
 python3 - "$m1/agents/review/security-reviewer.md" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 text = re.sub(r'(^description: )([^\n]+)', r'\1[DRIFT] \2', text, count=1, flags=re.MULTILINE)
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 set +e
 out="$(python3 "$SCRIPT" --pack "$m1" 2>&1)"
@@ -163,14 +163,14 @@ m6="$TMP/pack6"; mirror "$m6"
 python3 - "$m6/README.md" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 # Add a line that looks like canonical marketing but with a wrong number.
 text = text.replace(
     "# Harmonist\n",
     "# Harmonist\n\n> **999 agents** drift check.\n",
     1,
 )
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 set +e
 out="$(python3 "$SCRIPT" --pack "$m6" 2>&1)"
@@ -186,7 +186,7 @@ M7_TPL="$m7/AGENTS.template.md"; [[ -f "$M7_TPL" ]] || M7_TPL="$m7/AGENTS.md"
 python3 - "$M7_TPL" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 # Flip the engineering row count to something obviously wrong.
 text = re.sub(
     r"(\|\s*`engineering`\s*\|[^|]*\|[^|]*\|\s*)\d+(\s*\|)",
@@ -194,7 +194,7 @@ text = re.sub(
     text,
     count=1,
 )
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 set +e
 out="$(python3 "$SCRIPT" --pack "$m7" 2>&1)"

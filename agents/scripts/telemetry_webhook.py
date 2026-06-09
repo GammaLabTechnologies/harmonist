@@ -162,7 +162,7 @@ def _load_webhook_url(project: Path, cli_url: str | None) -> str:
     cfg = project / ".cursor" / "hooks" / "config.json"
     if cfg.exists():
         try:
-            data = json.loads(cfg.read_text())
+            data = json.loads(cfg.read_text(encoding="utf-8"))
             url = data.get("telemetry_webhook_url", "")
             if isinstance(url, str):
                 return url.strip()
@@ -176,7 +176,7 @@ def _load_pack_version(project: Path) -> str:
     if not pv.exists():
         return ""
     try:
-        return json.loads(pv.read_text()).get("pack_version", "")
+        return json.loads(pv.read_text(encoding="utf-8")).get("pack_version", "")
     except Exception:
         return ""
 
@@ -186,7 +186,7 @@ def _load_telemetry(project: Path) -> dict:
     if not tel.exists():
         return {}
     try:
-        return json.loads(tel.read_text())
+        return json.loads(tel.read_text(encoding="utf-8"))
     except Exception:
         return {}
 

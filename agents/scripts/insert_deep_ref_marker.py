@@ -163,7 +163,7 @@ def _find_cut_index(body_lines: list[str]) -> tuple[int | None, str]:
 
 
 def insert_marker(path: Path, dry_run: bool = False) -> tuple[bool, str]:
-    raw = path.read_text()
+    raw = path.read_text(encoding="utf-8")
     if MARKER_LINE in raw.splitlines():
         return False, "already-has-marker"
 
@@ -194,7 +194,7 @@ def insert_marker(path: Path, dry_run: bool = False) -> tuple[bool, str]:
     new_raw = fm + injected
 
     if not dry_run:
-        path.write_text(new_raw)
+        path.write_text(new_raw, encoding="utf-8")
     return True, reason
 
 
@@ -207,7 +207,7 @@ def main(argv: list[str]) -> int:
 
     files: list[Path] = list(args.files)
     if args.from_file:
-        for line in args.from_file.read_text().splitlines():
+        for line in args.from_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line:
                 files.append(Path(line))

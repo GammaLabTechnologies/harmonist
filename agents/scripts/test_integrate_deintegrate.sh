@@ -21,7 +21,7 @@ ko() { printf "  FAIL  %s\n" "$1"; fail=$((fail + 1)); }
 printf "\n=== F1: index.json carries version fields ===\n"
 python3 -c "
 import json
-d = json.load(open('$PACK/agents/index.json'))
+d = json.load(open('$PACK/agents/index.json', encoding='utf-8'))
 counts = d['counts']
 assert 'with_version' in counts, 'counts.with_version missing'
 assert 'with_updated_at' in counts, 'counts.with_updated_at missing'

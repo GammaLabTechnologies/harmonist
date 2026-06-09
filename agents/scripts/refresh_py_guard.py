@@ -138,7 +138,7 @@ TARGETS = [
 
 
 def load_snippet() -> str:
-    text = SNIPPET_FILE.read_text()
+    text = SNIPPET_FILE.read_text(encoding="utf-8")
     m = re.search(
         re.escape(BEGIN) + r"(.*?)" + re.escape(END),
         text,
@@ -234,14 +234,14 @@ def main(argv: list[str]) -> int:
         if not p.exists():
             print(f"  SKIP  {rel}  (missing)")
             continue
-        current = p.read_text()
+        current = p.read_text(encoding="utf-8")
         updated = inject(current, guard)
         if updated != current:
             if args.check:
                 stale.append(p)
                 print(f"  STALE {rel}")
             else:
-                p.write_text(updated)
+                p.write_text(updated, encoding="utf-8")
                 print(f"  UPDATE {rel}")
         else:
             print(f"  ok    {rel}")

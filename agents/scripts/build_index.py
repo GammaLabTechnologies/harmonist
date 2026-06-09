@@ -111,7 +111,7 @@ INDEX_PATH = REPO_AGENTS / "index.json"
 
 
 def load_agent(md: Path) -> dict | None:
-    raw = md.read_text()
+    raw = md.read_text(encoding="utf-8")
     if not raw.startswith("---\n"):
         return None
     end = raw.find("\n---\n", 4)
@@ -275,7 +275,7 @@ def main(argv: list[str]) -> int:
         if not INDEX_PATH.exists():
             print(f"ERROR {INDEX_PATH} does not exist. Run build_index.py.", file=sys.stderr)
             return 1
-        existing = INDEX_PATH.read_text()
+        existing = INDEX_PATH.read_text(encoding="utf-8")
         if existing != payload:
             print(
                 f"ERROR {INDEX_PATH} is out of date. Run scripts/build_index.py and commit.",
@@ -285,7 +285,7 @@ def main(argv: list[str]) -> int:
         print("index.json is up to date.")
         return 0
 
-    INDEX_PATH.write_text(payload)
+    INDEX_PATH.write_text(payload, encoding="utf-8")
     print(f"Wrote {INDEX_PATH.relative_to(REPO_AGENTS.parent)} — {index['counts']['total']} agents.")
     return 0
 

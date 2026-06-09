@@ -135,7 +135,7 @@ def _read_agents_md(project: Path) -> tuple[str, list[str], list[str]]:
     p = project / "AGENTS.md"
     if not p.exists():
         return ("", [], [])
-    text = p.read_text(errors="replace")
+    text = p.read_text(encoding="utf-8", errors="replace")
 
     # Domain identity: first non-empty line after "# AGENTS" or the
     # first level-1 heading's following paragraph.
@@ -186,7 +186,7 @@ def _count_memory_entries(project: Path) -> int:
     count = 0
     for p in mdir.glob("*.md"):
         count += len(re.findall(r"<!--\s*memory-entry:start\s*-->",
-                                p.read_text(errors="replace")))
+                                p.read_text(encoding="utf-8", errors="replace")))
     return count
 
 
@@ -195,7 +195,7 @@ def _read_pack_version(project: Path) -> str:
     if not p.exists():
         return ""
     try:
-        return json.loads(p.read_text()).get("pack_version", "")
+        return json.loads(p.read_text(encoding="utf-8")).get("pack_version", "")
     except Exception:
         return ""
 
@@ -205,7 +205,7 @@ def _count_hooks(project: Path) -> int:
     if not p.exists():
         return 0
     try:
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf-8"))
         return sum(len(v) if isinstance(v, list) else 0
                    for v in data.values())
     except Exception:

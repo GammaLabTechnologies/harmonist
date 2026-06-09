@@ -144,7 +144,8 @@ def _run_hook(project: Path, script: str, stdin_json: str) -> subprocess.Complet
         raise ValueError(f"unknown hook script {script!r}")
     return subprocess.run(
         [sys.executable, str(runner), phase], input=stdin_json,
-        capture_output=True, text=True, cwd=str(project), check=False,
+        capture_output=True, text=True, encoding="utf-8",
+        cwd=str(project), check=False,
     )
 
 
@@ -153,7 +154,7 @@ def _load_state(project: Path) -> dict:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
@@ -234,7 +235,8 @@ def scenario_happy(project: Path) -> Scenario:
          "--body", "Automated smoke test verified the full protocol path. "
                    "Sentinel write, qa-verifier review, and this handoff entry "
                    "landed through the real hook scripts."],
-        capture_output=True, text=True, cwd=str(project), check=False,
+        capture_output=True, text=True, encoding="utf-8",
+        cwd=str(project), check=False,
     )
     s.steps.append(Step(
         "memory.py append succeeds",

@@ -328,7 +328,7 @@ def install_openclaw() -> None:
         try:
             import subprocess
             r = subprocess.run(["openclaw", "agents", "list", "--json"],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, encoding="utf-8")
             existing = r.stdout or ""
         except Exception:
             existing = ""

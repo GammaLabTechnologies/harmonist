@@ -162,7 +162,7 @@ def check_agents_md_length(proj: Path) -> CheckResult:
     p = proj / "AGENTS.md"
     if not p.exists():
         return CheckResult("agents-md-length", "error", False, "AGENTS.md missing")
-    lines = len(p.read_text().splitlines())
+    lines = len(p.read_text(encoding="utf-8").splitlines())
     if lines >= MIN_AGENTS_MD_LINES:
         return CheckResult("agents-md-length", "error", True, f"AGENTS.md has {lines} lines")
     return CheckResult(
@@ -177,7 +177,7 @@ def check_agents_md_customized(proj: Path) -> CheckResult:
     p = proj / "AGENTS.md"
     if not p.exists():
         return CheckResult("agents-md-customized", "error", False, "AGENTS.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     leaked = [m for m in TEMPLATE_MARKERS if m in text]
     if not leaked:
         return CheckResult("agents-md-customized", "error", True,
@@ -206,7 +206,7 @@ def check_agents_md_invariants_customized(proj: Path) -> CheckResult:
     p = proj / "AGENTS.md"
     if not p.exists():
         return CheckResult("agents-md-invariants", "error", False, "AGENTS.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     matched = sum(1 for line in TEMPLATE_INVARIANT_FINGERPRINT if line in text)
     if matched < len(TEMPLATE_INVARIANT_FINGERPRINT):
         return CheckResult(
@@ -235,7 +235,7 @@ def check_agents_md_customize_comments(proj: Path) -> CheckResult:
     if not p.exists():
         return CheckResult("agents-md-customize-comments", "error", False,
                            "AGENTS.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     # Strip pack-owned blocks -- those can legitimately carry the
     # marker in examples-in-comments; only project-owned prose matters.
     project_text = re.sub(
@@ -259,7 +259,7 @@ def check_agents_md_references_index(proj: Path) -> CheckResult:
     p = proj / "AGENTS.md"
     if not p.exists():
         return CheckResult("agents-md-index-ref", "error", False, "AGENTS.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     if "agents/index.json" in text:
         return CheckResult("agents-md-index-ref", "error", True,
                            "AGENTS.md references agents/index.json for routing")
@@ -291,7 +291,7 @@ def _installed_slugs(proj: Path) -> set[str]:
         stem = md.stem
         # Also read the `name:` frontmatter to catch title-case persona files.
         try:
-            text = md.read_text()
+            text = md.read_text(encoding="utf-8")
         except Exception:
             continue
         slugs.add(stem)
@@ -337,7 +337,7 @@ def check_bg_regression_customized(proj: Path) -> CheckResult:
             "Copy from harmonist/agents/review/ and replace the test/lint/build "
             "commands with this project's actual commands.",
         )
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     # Heuristic: if the file still mentions generic placeholder tokens, it hasn't
     # been localised.
     placeholder_indicators = ["<PROJECT_TEST_CMD>", "<replace this>", "TBD",
@@ -382,7 +382,7 @@ def check_memory_not_template(proj: Path) -> CheckResult:
     if not p.exists():
         return CheckResult("memory-not-template", "error", False,
                            "session-handoff.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     # If ONLY the 0-0 placeholder exists, no real entry was appended yet.
     has_template = "id: 0-0-state" in text
     real_entry = re.search(r"^id:\s*\d{4,}-\d+-state\s*$", text, re.MULTILINE)
@@ -414,7 +414,7 @@ def check_memory_validates(proj: Path) -> CheckResult:
                            "validate.py missing", "See 'memory-setup' fix.")
     rc = subprocess.run(
         [sys.executable, str(p / "validate.py"), "--path", str(p), "--quiet"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8",
     )
     if rc.returncode == 0:
         return CheckResult("memory-validates", "error", True,
@@ -434,7 +434,7 @@ def check_hooks_installed(proj: Path) -> CheckResult:
                            ".cursor/hooks.json missing",
                            "Copy harmonist/hooks/hooks.json to .cursor/hooks.json.")
     try:
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult("hooks-json", "error", False,
                            f"hooks.json is not valid JSON: {e}",
@@ -567,7 +567,7 @@ def check_cursor_rules(proj: Path) -> CheckResult:
     if not prot.exists():
         failures.append("protocol-enforcement.mdc missing")
     else:
-        text = prot.read_text()
+        text = prot.read_text(encoding="utf-8")
         if "alwaysApply: true" not in text:
             failures.append("protocol-enforcement.mdc missing alwaysApply: true")
         if "pack-owned: protocol-enforcement" not in text:
@@ -581,7 +581,7 @@ def check_cursor_rules(proj: Path) -> CheckResult:
     if not domain.exists():
         failures.append("project-domain-rules.mdc missing")
     else:
-        text = domain.read_text()
+        text = domain.read_text(encoding="utf-8")
         if "alwaysApply: true" not in text:
             failures.append("project-domain-rules.mdc missing alwaysApply: true")
         # Count bullets (- ... or 1. ...) in the body.
@@ -606,7 +606,7 @@ def check_agents_md_markers(proj: Path) -> CheckResult:
     p = proj / "AGENTS.md"
     if not p.exists():
         return CheckResult("agents-md-markers", "warning", False, "AGENTS.md missing")
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     begin_count = text.count("<!-- pack-owned:begin")
     end_count = text.count("<!-- pack-owned:end")
     if begin_count == 0:
@@ -641,7 +641,7 @@ def check_pack_version_recorded(proj: Path) -> CheckResult:
             "(it writes the file on success).",
         )
     try:
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult(
             "pack-version-recorded", "warning", False,
@@ -673,7 +673,7 @@ def check_gitignore_memory(proj: Path) -> CheckResult:
             "Run 'python3 harmonist/agents/scripts/upgrade.py --apply' -- "
             "it writes the memory-privacy block automatically.",
         )
-    text = gi.read_text()
+    text = gi.read_text(encoding="utf-8")
     if "harmonist: memory privacy" in text:
         return CheckResult("gitignore-memory", severity, True,
                            ".gitignore carries the pack's memory-privacy block")
@@ -739,7 +739,7 @@ def check_rules_conflicts(proj: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(scanner), "--project", str(proj), "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
     except Exception as e:
         return CheckResult(
@@ -792,7 +792,7 @@ def check_installed_agent_safety(proj: Path) -> CheckResult:
     try:
         r = subprocess.run(
             [sys.executable, str(scanner), "--project", str(proj), "--json"],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
     except Exception as e:
         return CheckResult(

@@ -139,7 +139,7 @@ def _cut_body(body: str) -> tuple[str, str]:
 
 
 def extract(path: Path) -> ExtractResult:
-    raw = path.read_text()
+    raw = path.read_text(encoding="utf-8")
     fm, body = _split_frontmatter(raw)
     essentials_body, reason = _cut_body(body)
     original_lines = sum(1 for l in body.splitlines() if l.strip())
@@ -181,7 +181,7 @@ def main(argv: list[str]) -> int:
         if args.out_dir:
             args.out_dir.mkdir(parents=True, exist_ok=True)
             target = args.out_dir / f"{path.stem}.essentials.md"
-            target.write_text(result.essentials_text)
+            target.write_text(result.essentials_text, encoding="utf-8")
             print(f"Wrote {target} ({result.essentials_body_lines} non-blank body lines, {result.cut_reason})")
         else:
             sys.stdout.write(result.essentials_text)

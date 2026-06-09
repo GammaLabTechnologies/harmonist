@@ -31,7 +31,7 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 def _priority_enum() -> set:
     try:
-        schema = json.loads(SCHEMA_FILE.read_text())
+        schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
         return set(
             schema["items"]["properties"]["checklist"]["items"]
             ["properties"]["priority"]["enum"]
@@ -44,7 +44,7 @@ def validate(path: Path) -> tuple[list[str], dict]:
     problems: list[str] = []
     counts = {"sections": 0, "items": 0}
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
         return [f"{path.name}: not valid JSON: {e}"], counts
     if not isinstance(data, list):

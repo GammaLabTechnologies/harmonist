@@ -128,7 +128,7 @@ def _closest(tag: str, pool: set[str], n: int = 3) -> list[str]:
 
 def check_file(path: Path, errors: list[str], warnings: list[str], slug_seen: dict[str, Path]) -> None:
     rel = str(path.relative_to(REPO_AGENTS.parent))
-    raw = path.read_text()
+    raw = path.read_text(encoding="utf-8")
 
     if not raw.startswith("---\n"):
         errors.append(f"{rel}: missing opening frontmatter delimiter")

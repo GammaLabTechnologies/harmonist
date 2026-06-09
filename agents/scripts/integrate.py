@@ -148,7 +148,7 @@ def _py(script: str, *args: str, cwd: Path | None = None,
     cmd = [sys.executable, str(script), *args]
     return subprocess.run(
         cmd, cwd=str(cwd) if cwd else None,
-        capture_output=capture, text=True,
+        capture_output=capture, text=True, encoding="utf-8",
         env={**os.environ, **(env or {})},
     )
 
@@ -251,9 +251,9 @@ def step_4_agents_md(pack: Path, project: Path, apply: bool) -> Step:
     if apply:
         # The template hard-codes `harmonist/` paths (the default clone
         # name); rewrite them to the pack dir actually in use.
-        text = substitute_pack_dir(src.read_text(),
+        text = substitute_pack_dir(src.read_text(encoding="utf-8"),
                                    pack_dir_relname(pack, project))
-        target.write_text(text)
+        target.write_text(text, encoding="utf-8")
         s.status = "ok"
         s.message = (f"created AGENTS.md from the pack template "
                      "(NOW: customise Invariants + Platform Stack + Modules)")
@@ -320,7 +320,7 @@ def step_6_memory_bootstrap(pack: Path, project: Path, apply: bool) -> Step:
     # entry, we've run before; don't duplicate.
     already_bootstrapped = False
     if handoff.exists():
-        txt = handoff.read_text(errors="replace")
+        txt = handoff.read_text(encoding="utf-8", errors="replace")
         if "Integration complete; project state = bootstrap" in txt:
             already_bootstrapped = True
 

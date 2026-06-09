@@ -645,7 +645,7 @@ def affected_tests_for(paths: list[str], project_root: Path) -> "list[str] | Non
         r = subprocess.run(
             [sys.executable, str(cli), "affected", *rel,
              "--project", str(project_root), "--json"],
-            capture_output=True, text=True, timeout=20,
+            capture_output=True, text=True, encoding="utf-8", timeout=20,
         )
     except Exception:
         return None
@@ -1016,7 +1016,7 @@ def phase_session_start(input_json: dict) -> int:
             try:
                 r = subprocess.run(
                     [sys.executable, str(rm), "status", "--project", str(Path.cwd()), "--json"],
-                    capture_output=True, text=True, timeout=15,
+                    capture_output=True, text=True, encoding="utf-8", timeout=15,
                 )
                 data = json.loads(r.stdout or "{}")
                 if not data.get("built"):
@@ -1040,7 +1040,7 @@ def phase_session_start(input_json: dict) -> int:
             r = subprocess.run(
                 [sys.executable, str(cli), "latest", "--file", "session-handoff",
                  "--kind", "state", "--n", "3"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             latest_state = r.stdout
         except Exception:
@@ -1049,7 +1049,7 @@ def phase_session_start(input_json: dict) -> int:
             r = subprocess.run(
                 [sys.executable, str(cli), "latest", "--file", "decisions",
                  "--kind", "decision", "--n", "3"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             latest_decisions = r.stdout
         except Exception:
@@ -1070,7 +1070,7 @@ def phase_session_start(input_json: dict) -> int:
             try:
                 r = subprocess.run(
                     [sys.executable, str(cand), "--max-chars", "1200"],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True, text=True, encoding="utf-8", timeout=10,
                 )
                 project_context = r.stdout
             except Exception:
@@ -1555,7 +1555,7 @@ def phase_stop(input_json: dict) -> int:
             try:
                 r = subprocess.run(
                     [sys.executable, str(validator), "--strict", "--quiet"],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True, text=True, encoding="utf-8", timeout=30,
                 )
                 if r.returncode != 0:
                     missing.append("memory files failed schema validation:\n" + r.stderr.strip())

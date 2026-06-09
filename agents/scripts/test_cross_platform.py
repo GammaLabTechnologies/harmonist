@@ -118,7 +118,7 @@ def test_convert(tmp: Path) -> None:
     out = tmp / "int"
     r = subprocess.run([sys.executable, str(HERE / "convert.py"),
                         "--tool", "cursor", "--out", str(out)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     check("convert.py --tool cursor exits 0", r.returncode == 0, r.stderr[-200:])
     mdc = list((out / "cursor" / "rules").glob("*.mdc")) if (out / "cursor" / "rules").is_dir() else []
     check("convert.py produced .mdc rules", len(mdc) >= 100, f"found {len(mdc)}")
@@ -131,12 +131,13 @@ def test_install(tmp: Path) -> None:
     # cursor integration there first, then install into a temp project cwd
     # (cursor is project-scoped -> nothing global is touched).
     subprocess.run([sys.executable, str(HERE / "convert.py"), "--tool", "cursor"],
-                   capture_output=True, text=True)
+                   capture_output=True, text=True, encoding="utf-8")
     proj = tmp / "inst_proj"
     proj.mkdir(parents=True, exist_ok=True)
     r = subprocess.run([sys.executable, str(HERE / "install.py"),
                         "--tool", "cursor", "--no-interactive"],
-                       capture_output=True, text=True, cwd=str(proj))
+                       capture_output=True, text=True, encoding="utf-8",
+                       cwd=str(proj))
     check("install.py --tool cursor exits 0", r.returncode == 0, r.stderr[-200:])
     rules_dir = proj / ".cursor" / "rules"
     rules = list(rules_dir.glob("*.mdc")) if rules_dir.is_dir() else []
@@ -159,14 +160,17 @@ def test_repomap(tmp: Path) -> None:
     proj = tmp / "rm"
     (proj / "src").mkdir(parents=True, exist_ok=True)
     (proj / "tests").mkdir(parents=True, exist_ok=True)
-    (proj / "src" / "fee.py").write_text("def calc_fee(a):\n    return a*0.03\n")
+    (proj / "src" / "fee.py").write_text("def calc_fee(a):\n    return a*0.03\n",
+                                         encoding="utf-8")
     (proj / "src" / "billing.py").write_text(
-        "from src.fee import calc_fee\ndef charge(x):\n    return calc_fee(x)\n")
+        "from src.fee import calc_fee\ndef charge(x):\n    return calc_fee(x)\n",
+        encoding="utf-8")
     (proj / "tests" / "test_billing.py").write_text(
-        "from src.billing import charge\ndef test_charge():\n    assert charge(100)==3.0\n")
+        "from src.billing import charge\ndef test_charge():\n    assert charge(100)==3.0\n",
+        encoding="utf-8")
     rm = HERE / "repomap.py"
     b = subprocess.run([sys.executable, str(rm), "build", "--project", str(proj), "--json"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     check("repomap build exits 0", b.returncode == 0, b.stderr[-200:])
     try:
         edges = json.loads(b.stdout).get("edges", 0)
@@ -174,14 +178,16 @@ def test_repomap(tmp: Path) -> None:
         edges = 0
     check("repomap resolved import edges", edges >= 2, f"edges={edges}")
     imp = subprocess.run([sys.executable, str(rm), "impact", "src/fee.py",
-                          "--project", str(proj), "--json"], capture_output=True, text=True)
+                          "--project", str(proj), "--json"],
+                         capture_output=True, text=True, encoding="utf-8")
     try:
         blast = json.loads(imp.stdout or "[]")
     except Exception:
         blast = []
     check("repomap impact reaches billing", "src/billing.py" in blast, str(blast))
     aff = subprocess.run([sys.executable, str(rm), "affected", "src/fee.py",
-                          "--project", str(proj), "--json"], capture_output=True, text=True)
+                          "--project", str(proj), "--json"],
+                         capture_output=True, text=True, encoding="utf-8")
     try:
         tests = json.loads(aff.stdout or "[]")
     except Exception:
@@ -199,21 +205,21 @@ def test_e2e_integrate_smoke(tmp: Path) -> None:
     shutil.copy2(tpl, proj / "AGENTS.md")
     r = subprocess.run([sys.executable, str(HERE / "upgrade.py"),
                         "--project", str(proj), "--pack", str(PACK_ROOT), "--apply"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     check("upgrade.py --apply succeeds", r.returncode in (0, 1), r.stderr[-200:])
     runner = proj / ".cursor" / "hooks" / "scripts" / "hook_runner.py"
     check("hook_runner.py installed into project", runner.exists())
     hooks_json = proj / ".cursor" / "hooks.json"
     check("hooks.json installed", hooks_json.exists())
     if hooks_json.exists():
-        data = json.loads(hooks_json.read_text())
+        data = json.loads(hooks_json.read_text(encoding="utf-8"))
         cmd = data["hooks"]["stop"][0]["command"]
         check("hooks.json stop cmd targets hook_runner.py",
               "hook_runner.py stop" in cmd, cmd)
     # The real cross-OS proof: smoke_test drives hook_runner.py end-to-end.
     s = subprocess.run([sys.executable, str(HERE / "smoke_test.py"),
                         "--project", str(proj), "--json"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     ok = s.returncode == 0
     detail = ""
     if not ok:

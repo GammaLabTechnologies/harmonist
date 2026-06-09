@@ -335,7 +335,7 @@ def _load_vocab() -> tuple[dict, dict, dict]:
     if not TAGS_JSON.exists():
         return {}, {}, {}
     try:
-        data = json.loads(TAGS_JSON.read_text())
+        data = json.loads(TAGS_JSON.read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"ERROR loading {TAGS_JSON}: {exc}", file=sys.stderr)
         return {}, {}, {}
@@ -798,7 +798,7 @@ def _ensure_deference_block(body: str, category: str, protocol: str) -> str:
 
 
 def process_file(path: Path, category: str, changes: list, dry_run: bool) -> None:
-    raw = path.read_text()
+    raw = path.read_text(encoding="utf-8")
     if not raw.startswith("---\n"):
         return  # not an agent file
     end = raw.find("\n---\n", 4)
@@ -840,7 +840,7 @@ def process_file(path: Path, category: str, changes: list, dry_run: bool) -> Non
                 file=sys.stderr,
             )
         if not dry_run:
-            path.write_text(new_content)
+            path.write_text(new_content, encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:

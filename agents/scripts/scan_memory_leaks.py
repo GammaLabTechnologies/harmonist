@@ -96,7 +96,8 @@ MEMORY_PREFIX = ".cursor/memory/"
 
 
 def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=False)
+    return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", check=False)
 
 
 def list_tracked(project: Path) -> list[str]:

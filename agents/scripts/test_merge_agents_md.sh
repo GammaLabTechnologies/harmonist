@@ -32,15 +32,20 @@ printf "\n=== 1: merge is idempotent (apply once, second run is a no-op) ===\n"
 # A verbatim template copy is no longer a no-op: the merge rewrites the
 # literal `harmonist/` path prefix to the actual pack dir name. Apply once,
 # then confirm the second (dry) run reports nothing left to change.
+# Use a CONTROLLED pack dir name (not $PACK): the real checkout may be
+# named anything -- including literally `harmonist`, where substitution is
+# a correct no-op (scenario 5) and the assertion below would be wrong.
 proj1="$TMP/proj1"
-mkdir -p "$proj1"
+mkdir -p "$proj1/vendored-pack"
+cp "$PACK_TPL" "$proj1/vendored-pack/AGENTS.template.md"
 cp "$PACK_TPL" "$proj1/AGENTS.md"
-python3 "$SCRIPT" --pack "$PACK" --project "$proj1" --apply >/dev/null || true
-out="$(python3 "$SCRIPT" --pack "$PACK" --project "$proj1" || true)"
+python3 "$SCRIPT" --pack "$proj1/vendored-pack" --project "$proj1" --apply >/dev/null || true
+out="$(python3 "$SCRIPT" --pack "$proj1/vendored-pack" --project "$proj1" || true)"
 echo "$out" | grep -qF "already up to date" && ok "reports up-to-date after apply" || ko "reports up-to-date after apply"
 # Substitution actually happened: pack-owned content no longer hard-codes
-# `harmonist/` (the pack dir here is not named "harmonist").
-if ! grep -qF "harmonist/agents/index.json" "$proj1/AGENTS.md"; then
+# `harmonist/` (the controlled pack dir is named "vendored-pack").
+if ! grep -qF "harmonist/agents/index.json" "$proj1/AGENTS.md" \
+   && grep -qF "vendored-pack/agents/index.json" "$proj1/AGENTS.md"; then
   ok "pack dir prefix substituted in pack-owned blocks"
 else
   ko "pack dir prefix substituted in pack-owned blocks"
@@ -56,7 +61,7 @@ cp "$PACK_TPL" "$proj2/AGENTS.md"
 python3 - "$proj2/AGENTS.md" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
-text = p.read_text()
+text = p.read_text(encoding="utf-8")
 # Replace the Invariants block with a project-specific one.
 text = re.sub(
     r"## Invariants.*?(?=---\n## Topology|\n## Topology|\n<!-- pack-owned:begin id=\"topology\")",
@@ -69,7 +74,7 @@ text = text.replace(
     "STALE-PRECEDENCE-TEXT (pack will overwrite this)",
     1,
 )
-p.write_text(text)
+p.write_text(text, encoding="utf-8")
 PY
 
 out="$(python3 "$SCRIPT" --pack "$PACK" --project "$proj2" --apply || true)"
@@ -119,9 +124,9 @@ mkdir -p "$proj4"
 python3 - "$PACK_TPL" "$proj4/AGENTS.md" <<'PY'
 import sys, pathlib, re
 src, dst = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-text = src.read_text()
+text = src.read_text(encoding="utf-8")
 text = re.sub(r'^<!--\s*pack-owned:(begin|end)[^>]*-->\s*\n', '', text, flags=re.MULTILINE)
-dst.write_text(text)
+dst.write_text(text, encoding="utf-8")
 PY
 
 set +e

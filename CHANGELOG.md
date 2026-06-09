@@ -13,6 +13,28 @@ what the upgrade tool is allowed to touch.
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-06-10
+
+Patch release completing native-Windows support: the catalog-read counterpart
+to the v1.2.1 stdout fix. Together they make the native-Windows CI job pass
+end to end for the first time.
+
+### Fixed
+
+- **Windows `UnicodeDecodeError` reading the catalog.** Pack scripts read
+  agent files, `tags.json`, `index.json`, templates, and configs with
+  `read_text()` / `open()` without an explicit encoding, so a default Windows
+  console (cp1252) crashed decoding any non-ASCII content (em-dashes, smart
+  quotes, CJK agent names). All text-mode file I/O across `agents/scripts/`,
+  `hooks/scripts/`, `memory/`, and `playbooks/checklists/validate.py` now pins
+  `encoding="utf-8"` (92 sites across 24 scripts); subprocess captures decode
+  UTF-8 too. Verified on macOS by forcing an ASCII locale
+  (`PYTHONUTF8=0 LC_ALL=C`): the full battery is green under it.
+- **`merge_agents_md` test isolation.** A test asserted the `harmonist/` → pack
+  substitution changed the output, which is a correct no-op when the checkout
+  directory is itself named `harmonist` (as on CI). It now uses a controlled
+  vendored-pack fixture and passes regardless of the checkout directory name.
+
 ## [1.2.1] — 2026-06-10
 
 Patch release: the native-Windows stdio fix discovered while turning the
