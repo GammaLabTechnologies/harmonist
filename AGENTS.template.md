@@ -1,3 +1,24 @@
+<!-- TEMPLATE PREAMBLE — project-owned at integration time; NOT copied into the
+     generated AGENTS.md. Everything below the preamble is the template body. -->
+
+> **THIS FILE IS A TEMPLATE shipped with the pack — it is NOT an active rule
+> for the pack folder itself.**
+>
+> - **If you are an AI agent reading this from inside the pack folder because
+>   someone asked you to "install" or "integrate" this pack: STOP — do not obey
+>   the protocol below. Follow `integration-prompt.md` instead.** The protocol
+>   in this file applies AFTER integration, in the USER's project, where this
+>   template becomes the project's `AGENTS.md` with real stack, modules,
+>   invariants, and paths filled in. Inside the pack folder the enforcement
+>   machinery it references (`.cursor/hooks/`, `.cursor/memory/`) is not
+>   installed yet, so treating this file as a live rule only produces
+>   unsatisfiable demands.
+> - The pack folder may have any name. Literal `harmonist/` paths below are
+>   placeholders for the actual pack directory name and are substituted at
+>   integration time — automatically by `upgrade.py` / `merge_agents_md.py`
+>   for pack-owned blocks; manually for anything you copy by hand.
+> - Do not copy this preamble into the generated project `AGENTS.md`.
+
 # Engineering Orchestrator
 
 <!-- pack-owned:begin id="mandatory-rule" -->
@@ -537,7 +558,11 @@ correlation_id        →  [ID used in this task]
 ## NEXUS Strategy (optional)
 
 For large projects — structured 7-phase lifecycle, lives under
-`harmonist/playbooks/`:
+`harmonist/playbooks/`. The NEXUS tree is **legacy content that predates the
+enforcement protocol and is not protocol-integrated** — it uses display names
+instead of slugs and its own activation phrasing; routing and dispatch always
+follow this file + `agents/index.json`, with NEXUS sequencing treated as
+inspiration only.
 
 ```
 Phase 0  Discovery     →  problem space

@@ -38,14 +38,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -111,18 +143,13 @@ ROLE_DEFAULTS: dict[str, list[str]] = {
     ],
 }
 
-# Strict + orchestration slugs are owned by `upgrade.py --apply`;
-# installing or overwriting them via this script is refused.
-STRICT_SLUGS = frozenset({
-    "repo-scout",
-    "agents-orchestrator",
-    "security-reviewer",
-    "code-quality-auditor",
-    "qa-verifier",
-    "sre-observability",
-    "bg-regression-runner",
-    "wcag-a11y-gate",
-})
+# Strict (orchestration + review) slugs are owned by `upgrade.py --apply`;
+# installing or overwriting them via this script is refused. Derived from
+# agents/index.json via the shared strict_slugs module.
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+from strict_slugs import ALL_STRICT as STRICT_SLUGS  # noqa: E402
 
 
 @dataclass
@@ -167,7 +194,7 @@ def _load_index(pack_root: Path) -> dict:
         raise FileNotFoundError(
             f"pack catalog missing: {idx} (run build_index.py from the pack root)"
         )
-    return json.loads(idx.read_text())
+    return json.loads(idx.read_text(encoding="utf-8"))
 
 
 def _load_manifest(pack_root: Path) -> dict[str, str]:
@@ -176,7 +203,7 @@ def _load_manifest(pack_root: Path) -> dict[str, str]:
     if not p.exists():
         return {}
     out: dict[str, str] = {}
-    for line in p.read_text().splitlines():
+    for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -195,12 +222,20 @@ def _find_pack_root(explicit: Path | None) -> Path:
     # Prefer the pack this script lives in.
     if (PACK_ROOT / "agents" / "index.json").exists():
         return PACK_ROOT
-    # Fallback: cwd/harmonist
-    cwd_pack = Path.cwd() / "harmonist"
-    if (cwd_pack / "agents" / "index.json").exists():
-        return cwd_pack
+    # Fallback: scan the cwd's immediate subdirectories for a pack
+    # SIGNATURE (agents/index.json) instead of hardcoding the clone name
+    # `harmonist` -- users vendor the pack under any directory name.
+    try:
+        children = sorted(p for p in Path.cwd().iterdir() if p.is_dir())
+    except OSError:
+        children = []
+    for child in children:
+        if child.name.startswith("."):
+            continue
+        if (child / "agents" / "index.json").exists():
+            return child
     raise FileNotFoundError(
-        "cannot locate pack root; pass --pack <path-to-harmonist>"
+        "cannot locate pack root; pass --pack <path-to-pack-checkout>"
     )
 
 
@@ -243,7 +278,7 @@ def _project_domains(project_root: Path) -> set[str]:
     p = project_root / "AGENTS.md"
     if not p.exists():
         return {"all"}
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8", errors="replace")
     # Scan for a "domains: [a, b, c]" style declaration in the first 200 lines.
     import re
     m = re.search(r"(?mi)^\s*(?:-\s*|\*\*)?domains\s*[:=]\s*\[([^\]]+)\]", text)
@@ -401,7 +436,7 @@ def _install_one(
         sys.path.insert(0, str(SCRIPT_DIR))
         from extract_essentials import extract  # noqa: E402
         result = extract(src)
-        target.write_text(result.essentials_text)
+        target.write_text(result.essentials_text, encoding="utf-8")
         action = "copy-thin"
         extra = f"thin:{result.cut_reason}"
     else:
@@ -428,7 +463,7 @@ def _merge_pack_manifest(report: InstallReport, pack_version: str,
     payload: dict
     if pm_path.exists():
         try:
-            payload = json.loads(pm_path.read_text())
+            payload = json.loads(pm_path.read_text(encoding="utf-8"))
         except Exception:
             payload = {}
     else:
@@ -463,7 +498,8 @@ def _merge_pack_manifest(report: InstallReport, pack_version: str,
     payload["files"] = files
     payload["recorded_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     pm_path.parent.mkdir(parents=True, exist_ok=True)
-    pm_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    pm_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                       encoding="utf-8")
 
 
 # --------------------------------------------------------------------------
@@ -600,7 +636,7 @@ def main(argv: list[str]) -> int:
 
     idx = _load_index(pack_root)
     manifest = _load_manifest(pack_root)
-    pack_version = (pack_root / "VERSION").read_text().strip() if (pack_root / "VERSION").exists() else ""
+    pack_version = (pack_root / "VERSION").read_text(encoding="utf-8").strip() if (pack_root / "VERSION").exists() else ""
 
     # Assemble candidate list.
     candidates: list[str] = []

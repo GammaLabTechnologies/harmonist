@@ -29,18 +29,51 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -251,12 +284,12 @@ def scan_for_secrets(text: str) -> list[tuple[str, str]]:
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 from validate import (  # noqa: E402
-    FILE_KIND,
     VALID_AUTHORS,
     VALID_KINDS,
     VALID_STATUSES,
     discover_files,
     iter_entries,
+    kind_for_filename,
     Report,
     validate,
 )
@@ -299,6 +332,169 @@ def hooks_state_path() -> Path:
     return SCRIPT_DIR / ".state" / "session.json"
 
 
+# --------------------------------------------------------------------------- locking
+#
+# Appends are read-modify-write (collect ids -> dedupe -> append -> validate /
+# rollback) on a shared file; two concurrent appends could both pick the same
+# id or interleave a rollback with the other's append. _save_state writes the
+# HOOKS' session.json, which hook_runner serializes via a <state>.lock flock
+# sidecar -- we must take the same lock or our write can land mid-way through
+# a hook's read-modify-write.
+#
+# The helper is best-effort and portable: fcntl on POSIX, msvcrt.locking on
+# Windows, and an O_CREAT|O_EXCL lockfile (with stale-lock breaking) when
+# neither primitive exists. On timeout we proceed unlocked -- a hung peer
+# must not brick the CLI.
+
+_LOCK_TIMEOUT_SECONDS = 10.0
+_LOCK_RETRY_SLEEP = 0.05
+_STALE_LOCKFILE_SECONDS = 60.0
+
+
+@contextlib.contextmanager
+def _file_lock(target: Path, timeout: float = _LOCK_TIMEOUT_SECONDS):
+    """Advisory cross-process lock on `<target>.lock`. Yields True when the
+    lock was acquired, False when we timed out / locking is unavailable and
+    proceed unlocked. The sidecar naming matches hook_runner.py so the CLI
+    and the hooks serialize on the SAME lock for the same file."""
+    lock_path = Path(str(target) + ".lock")
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    fh = None
+    mechanism = None  # "fcntl" | "msvcrt" | "excl" | None
+    if os.name == "nt":
+        try:
+            import msvcrt  # noqa: F401
+            mechanism = "msvcrt"
+        except ImportError:
+            mechanism = None
+    else:
+        try:
+            import fcntl  # noqa: F401
+            mechanism = "fcntl"
+        except ImportError:
+            mechanism = None
+
+    acquired = False
+    deadline = time.time() + max(timeout, 0.0)
+    if mechanism in ("fcntl", "msvcrt"):
+        try:
+            fh = open(lock_path, "a+", encoding="utf-8")
+        except Exception:
+            fh = None
+            mechanism = None
+    if fh is not None and mechanism == "fcntl":
+        import fcntl
+        while True:
+            try:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except OSError:
+                if time.time() >= deadline:
+                    break
+                time.sleep(_LOCK_RETRY_SLEEP)
+    elif fh is not None and mechanism == "msvcrt":
+        import msvcrt
+        while True:
+            try:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                acquired = True
+                break
+            except OSError:
+                if time.time() >= deadline:
+                    break
+                time.sleep(_LOCK_RETRY_SLEEP)
+    elif mechanism is None:
+        # Portable fallback: an exclusive-create lockfile. A holder that
+        # died leaves the file behind; break it after a stale timeout.
+        excl_path = Path(str(target) + ".xlock")
+        while True:
+            try:
+                fd = os.open(excl_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
+                mechanism = "excl"
+                acquired = True
+                break
+            except FileExistsError:
+                try:
+                    st = excl_path.stat()
+                    age = time.time() - st.st_mtime
+                except OSError:
+                    st = None
+                    age = 0.0
+                if st is not None and age > _STALE_LOCKFILE_SECONDS:
+                    # TOCTOU-safe stale break. A bare unlink lets two
+                    # waiters both "break" the same stale lock (the second
+                    # unlink removes the FIRST waiter's freshly-created
+                    # lock) and both acquire. Instead, atomically RENAME
+                    # the lockfile to a unique name: of N waiters exactly
+                    # one wins the rename. Then re-compare identity -- if
+                    # we accidentally captured a FRESH lock that slipped in
+                    # after our stat, put it back.
+                    breaker = Path("%s.xlock.stale.%d.%d" % (
+                        str(target), os.getpid(), int(time.time() * 1000)))
+                    try:
+                        os.replace(str(excl_path), str(breaker))
+                    except OSError:
+                        continue  # another waiter won the rename
+                    try:
+                        bst = breaker.stat()
+                        same = (getattr(bst, "st_ino", 0) == getattr(st, "st_ino", 0)
+                                and bst.st_mtime == st.st_mtime)
+                    except OSError:
+                        same = True
+                    if same:
+                        try:
+                            breaker.unlink()
+                        except OSError:
+                            pass
+                    else:
+                        # Fresh holder's lock captured by mistake: restore.
+                        try:
+                            os.replace(str(breaker), str(excl_path))
+                        except OSError:
+                            try:
+                                breaker.unlink()
+                            except OSError:
+                                pass
+                    continue
+                if time.time() >= deadline:
+                    break
+                time.sleep(_LOCK_RETRY_SLEEP)
+            except Exception:
+                break
+
+    try:
+        yield acquired
+    finally:
+        try:
+            if acquired and mechanism == "fcntl":
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            elif acquired and mechanism == "msvcrt":
+                import msvcrt
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            elif acquired and mechanism == "excl":
+                excl_path = Path(str(target) + ".xlock")
+                try:
+                    excl_path.unlink()
+                except OSError:
+                    pass
+        except Exception:
+            pass
+        if fh is not None:
+            try:
+                fh.close()
+            except Exception:
+                pass
+
+
 # --------------------------------------------------------------------------- state handling
 
 
@@ -306,18 +502,29 @@ def _load_state() -> dict:
     path = hooks_state_path()
     if path.exists():
         try:
-            return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             pass
     return {}
 
 
-def _save_state(state: dict) -> None:
+def _write_state(state: dict) -> None:
+    """Serialize state to the hooks' session.json WITHOUT locking.
+    Callers must hold the session.json lock around their whole
+    read-modify-write (see active_correlation_id / bump_task)."""
     path = hooks_state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(state, indent=2))
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
     tmp.replace(path)
+
+
+def _save_state(state: dict) -> None:
+    # Same `session.json.lock` protocol as hook_runner.py: the hooks hold it
+    # across their read-modify-write, so writing without it could interleave
+    # with a hook's transaction.
+    with _file_lock(hooks_state_path()):
+        _write_state(state)
 
 
 def active_correlation_id() -> str:
@@ -325,22 +532,27 @@ def active_correlation_id() -> str:
 
     Prefers the one set by the enforcement hooks. If none exists, generates
     a fresh session and task_seq=0 and persists it to the fallback state.
+
+    The WHOLE read-modify-write sits under the hooks' session.json lock:
+    locking only the write would let a concurrent hook phase interleave
+    between our read and our save (lost update / duplicate bootstrap).
     """
-    state = _load_state()
-    cid = state.get("active_correlation_id")
-    if cid:
-        return cid
-    # bootstrap -- session_id = <unix-seconds><pid4> matches the hook
-    # bootstrap format (lib.sh::_state_bootstrap) so the CLI and the
-    # hooks agree on shape and never clash when both happen to
-    # bootstrap in the same second.
-    session_id = state.get("session_id") or f"{int(time.time())}{os.getpid() % 10000:04d}"
-    task_seq = int(state.get("task_seq", 0))
-    cid = f"{session_id}-{task_seq}"
-    state.setdefault("session_id", session_id)
-    state.setdefault("task_seq", task_seq)
-    state["active_correlation_id"] = cid
-    _save_state(state)
+    with _file_lock(hooks_state_path()):
+        state = _load_state()
+        cid = state.get("active_correlation_id")
+        if cid:
+            return cid
+        # bootstrap -- session_id = <unix-seconds><pid4> matches the hook
+        # bootstrap format (lib.sh::_state_bootstrap) so the CLI and the
+        # hooks agree on shape and never clash when both happen to
+        # bootstrap in the same second.
+        session_id = state.get("session_id") or f"{int(time.time())}{os.getpid() % 10000:04d}"
+        task_seq = int(state.get("task_seq", 0))
+        cid = f"{session_id}-{task_seq}"
+        state.setdefault("session_id", session_id)
+        state.setdefault("task_seq", task_seq)
+        state["active_correlation_id"] = cid
+        _write_state(state)
     return cid
 
 
@@ -348,15 +560,18 @@ def bump_task() -> str:
     """Advance task_seq by one and return the new active_correlation_id.
 
     Called by the stop hook after a successful, validated completion.
+    Read-modify-write under the session.json lock (see
+    active_correlation_id for why the lock covers the read too).
     """
-    state = _load_state()
-    session_id = state.get("session_id") or f"{int(time.time())}{os.getpid() % 10000:04d}"
-    task_seq = int(state.get("task_seq", 0)) + 1
-    cid = f"{session_id}-{task_seq}"
-    state["session_id"] = session_id
-    state["task_seq"] = task_seq
-    state["active_correlation_id"] = cid
-    _save_state(state)
+    with _file_lock(hooks_state_path()):
+        state = _load_state()
+        session_id = state.get("session_id") or f"{int(time.time())}{os.getpid() % 10000:04d}"
+        task_seq = int(state.get("task_seq", 0)) + 1
+        cid = f"{session_id}-{task_seq}"
+        state["session_id"] = session_id
+        state["task_seq"] = task_seq
+        state["active_correlation_id"] = cid
+        _write_state(state)
     return cid
 
 
@@ -403,12 +618,12 @@ def _render_entry(
 
 
 def _append_block(file: Path, block: str) -> None:
-    existing = file.read_text() if file.exists() else ""
+    existing = file.read_text(encoding="utf-8") if file.exists() else ""
     if existing and not existing.endswith("\n\n"):
         sep = "\n" if existing.endswith("\n") else "\n\n"
     else:
         sep = ""
-    file.write_text(existing + sep + block)
+    file.write_text(existing + sep + block, encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- subcommands
@@ -430,15 +645,8 @@ def cmd_append(args: argparse.Namespace) -> int:
     if not file.endswith(".md"):
         file = f"{file}.md"
     file_path = memory_dir() / file
-    # Check kind matches file expectation (if standard file)
-    expected_kind = FILE_KIND.get(file_path.name)
-    if expected_kind is None:
-        # maybe *.shared.md
-        for base, k in FILE_KIND.items():
-            bare = base.removesuffix(".md")
-            if file_path.name == base or file_path.name.startswith(bare + "."):
-                expected_kind = k
-                break
+    # Check kind matches file expectation (covers *.shared.md and archives).
+    expected_kind = kind_for_filename(file_path.name)
     if expected_kind and kind != expected_kind:
         print(
             f"error: file {file_path.name} requires kind={expected_kind!r}, got {kind!r}",
@@ -448,7 +656,7 @@ def cmd_append(args: argparse.Namespace) -> int:
 
     body = ""
     if args.body_file:
-        body = Path(args.body_file).read_text()
+        body = Path(args.body_file).read_text(encoding="utf-8")
     elif args.body:
         body = args.body
     else:
@@ -480,16 +688,6 @@ def cmd_append(args: argparse.Namespace) -> int:
               "positive, re-run with --allow-secrets.", file=sys.stderr)
         return 2
 
-    cid = active_correlation_id()
-    # Build an id that uniquely disambiguates repeats in the same task.
-    base_id = f"{cid}-{kind}"
-    existing_ids = _collect_ids(file_path.parent if file_path.parent.exists() else memory_dir())
-    id_ = base_id
-    n = 1
-    while id_ in existing_ids:
-        n += 1
-        id_ = f"{base_id}-{n}"
-
     tags = []
     if args.tags:
         tags = [t.strip() for t in args.tags.split(",") if t.strip()]
@@ -502,86 +700,113 @@ def cmd_append(args: argparse.Namespace) -> int:
     if args.links:
         extra["links"] = [l.strip() for l in args.links.split(",") if l.strip()]
 
-    block = _render_entry(
-        id_=id_,
-        correlation_id=cid,
-        kind=kind,
-        status=args.status,
-        author=args.author,
-        summary=args.summary.strip(),
-        body=body,
-        tags=tags,
-        extra=extra,
-    )
+    # Everything from id selection to the validated append is one
+    # read-modify-write transaction: without the lock, two concurrent
+    # appends can pick the same id or interleave a rollback with the
+    # other's freshly-written block.
+    with _file_lock(file_path):
+        cid = active_correlation_id()
+        # Build an id that uniquely disambiguates repeats in the same task.
+        base_id = f"{cid}-{kind}"
+        existing_ids = _collect_ids(file_path.parent if file_path.parent.exists() else memory_dir())
+        id_ = base_id
+        n = 1
+        while id_ in existing_ids:
+            n += 1
+            id_ = f"{base_id}-{n}"
 
-    # Dedupe guard. Refuses any append whose `summary` matches an
-    # existing entry ANYWHERE in the file (not just the last 10 --
-    # that earlier window could be bypassed by inserting 10 filler
-    # entries between the banned summary and the re-emit).
-    #
-    # Also refuses body-hash collisions with any existing entry, so a
-    # re-worded summary on top of an unchanged body is still caught.
-    #
-    # Scanning is cheap: each file is typically < 200 entries and body
-    # hashing uses a short blake2s digest.
-    if file_path.exists() and not getattr(args, "allow_duplicate", False):
-        import hashlib
-        dup_summary = args.summary.strip()
-        incoming_hash = hashlib.blake2s(body.encode("utf-8"), digest_size=8).hexdigest()
-        recent_report = Report()
-        all_entries = list(iter_entries(file_path, recent_report))
-        for e in all_entries:
-            prev_summary = str(e.frontmatter.get("summary", "")).strip()
-            prev_body = (e.body or "").strip()
-            prev_hash = hashlib.blake2s(prev_body.encode("utf-8"), digest_size=8).hexdigest()
-            dup_id = e.frontmatter.get("id", "?")
-            if prev_summary and prev_summary == dup_summary:
-                print(
-                    f"error: {file_path.name} already has the same summary:\n"
-                    f"  id: {dup_id}\n"
-                    f"  summary: {prev_summary}\n"
-                    "If this is an intentional re-emit (e.g. state snapshot "
-                    "that hasn't changed), re-run with --allow-duplicate. "
-                    "Otherwise rewrite the summary to name what changed.",
-                    file=sys.stderr,
-                )
-                return 2
-            if prev_hash == incoming_hash and prev_body:
-                print(
-                    f"error: {file_path.name} already has an entry with the "
-                    f"same body (hash match):\n"
-                    f"  id: {dup_id}\n"
-                    f"  prev summary: {prev_summary}\n"
-                    f"  new  summary: {dup_summary}\n"
-                    "The body is byte-identical to an existing entry; the "
-                    "summary was just re-worded. Re-run with "
-                    "--allow-duplicate if this is intentional.",
-                    file=sys.stderr,
-                )
-                return 2
-
-    # Dry-run path: just print the block.
-    if args.dry_run:
-        sys.stdout.write(block)
-        return 0
-
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    _append_block(file_path, block)
-
-    # Validate the freshly-written file. Rollback on failure.
-    report = validate([file_path])
-    if report.errors:
-        # Revert by removing the block we just added.
-        current = file_path.read_text()
-        if current.endswith(block):
-            file_path.write_text(current[: -len(block)].rstrip("\n") + "\n")
-        for err in report.errors:
-            print(f"ERROR {err}", file=sys.stderr)
-        print(
-            f"error: the rendered block failed schema validation; rolled back {file_path}",
-            file=sys.stderr,
+        block = _render_entry(
+            id_=id_,
+            correlation_id=cid,
+            kind=kind,
+            status=args.status,
+            author=args.author,
+            summary=args.summary.strip(),
+            body=body,
+            tags=tags,
+            extra=extra,
         )
-        return 1
+
+        # Dedupe guard. Refuses any append whose `summary` matches an
+        # existing entry ANYWHERE in the file (not just the last 10 --
+        # that earlier window could be bypassed by inserting 10 filler
+        # entries between the banned summary and the re-emit).
+        #
+        # Also refuses body-hash collisions with any existing entry, so a
+        # re-worded summary on top of an unchanged body is still caught.
+        #
+        # Scanning is cheap: each file is typically < 200 entries and body
+        # hashing uses a short blake2s digest.
+        if file_path.exists() and not getattr(args, "allow_duplicate", False):
+            import hashlib
+            dup_summary = args.summary.strip()
+            incoming_hash = hashlib.blake2s(body.encode("utf-8"), digest_size=8).hexdigest()
+            recent_report = Report()
+            all_entries = list(iter_entries(file_path, recent_report))
+            for e in all_entries:
+                prev_summary = str(e.frontmatter.get("summary", "")).strip()
+                prev_body = (e.body or "").strip()
+                prev_hash = hashlib.blake2s(prev_body.encode("utf-8"), digest_size=8).hexdigest()
+                dup_id = e.frontmatter.get("id", "?")
+                if prev_summary and prev_summary == dup_summary:
+                    print(
+                        f"error: {file_path.name} already has the same summary:\n"
+                        f"  id: {dup_id}\n"
+                        f"  summary: {prev_summary}\n"
+                        "If this is an intentional re-emit (e.g. state snapshot "
+                        "that hasn't changed), re-run with --allow-duplicate. "
+                        "Otherwise rewrite the summary to name what changed.",
+                        file=sys.stderr,
+                    )
+                    return 2
+                if prev_hash == incoming_hash and prev_body:
+                    print(
+                        f"error: {file_path.name} already has an entry with the "
+                        f"same body (hash match):\n"
+                        f"  id: {dup_id}\n"
+                        f"  prev summary: {prev_summary}\n"
+                        f"  new  summary: {dup_summary}\n"
+                        "The body is byte-identical to an existing entry; the "
+                        "summary was just re-worded. Re-run with "
+                        "--allow-duplicate if this is intentional.",
+                        file=sys.stderr,
+                    )
+                    return 2
+
+        # Dry-run path: just print the block.
+        if args.dry_run:
+            sys.stdout.write(block)
+            return 0
+
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        existed_before = file_path.exists()
+        _append_block(file_path, block)
+
+        # Validate the freshly-written file. Rollback on failure.
+        report = validate([file_path])
+        if report.errors:
+            # Revert by removing the block we just added. A first-ever
+            # entry that fails validation must not leave a 1-byte "\n"
+            # stub behind -- remove the file we created.
+            current = file_path.read_text(encoding="utf-8")
+            if current.endswith(block):
+                remainder = current[: -len(block)].rstrip("\n")
+                if not existed_before and not remainder:
+                    try:
+                        file_path.unlink()
+                    except OSError:
+                        file_path.write_text("", encoding="utf-8")
+                else:
+                    file_path.write_text(
+                        (remainder + "\n") if remainder else "",
+                        encoding="utf-8")
+            for err in report.errors:
+                print(f"ERROR {err}", file=sys.stderr)
+            print(
+                f"error: the rendered block failed schema validation; rolled back {file_path}",
+                file=sys.stderr,
+            )
+            return 1
 
     print(id_)
     return 0
@@ -773,15 +998,6 @@ def cmd_rotate(args: argparse.Namespace) -> int:
         print(f"no such memory file: {path}", file=sys.stderr)
         return 1
 
-    report = Report()
-    entries = list(iter_entries(path, report))
-    if report.errors and not args.force:
-        for e in report.errors:
-            print(f"ERROR {e}", file=sys.stderr)
-        print("refusing to rotate a file with validation errors (use --force)",
-              file=sys.stderr)
-        return 2
-
     keep_last = args.keep_last
     since_date = None
     if args.since:
@@ -799,26 +1015,6 @@ def cmd_rotate(args: argparse.Namespace) -> int:
             except Exception:
                 return False
         return False
-
-    # Pick entries to KEEP in the live file.
-    if since_date is not None:
-        kept = [e for e in entries if _keep(e)]
-        archived = [e for e in entries if not _keep(e)]
-    else:
-        if keep_last is None or keep_last <= 0:
-            print("--keep-last must be a positive integer when --since is absent",
-                  file=sys.stderr)
-            return 2
-        kept = entries[-keep_last:]
-        archived = entries[:-keep_last] if keep_last < len(entries) else []
-
-    if not kept:
-        print("rotate would leave the live file with zero entries; refusing",
-              file=sys.stderr)
-        return 2
-    if not archived:
-        print("nothing to rotate (archive would be empty)")
-        return 0
 
     def _render(entries_: list) -> str:
         out: list[str] = []
@@ -838,48 +1034,85 @@ def cmd_rotate(args: argparse.Namespace) -> int:
             out.append("")
         return "\n".join(out) + "\n"
 
-    # Archive name: <stem>-archive-<YYYY-MM-DD>.md
-    today = dt.date.today().isoformat()
-    stem = path.stem
-    archive = path.with_name(f"{stem}-archive-{today}.md")
+    # Rotation rewrites the live file AND the archive: a concurrent append
+    # in between would be lost. Same lock the append path takes.
+    with _file_lock(path):
+        report = Report()
+        entries = list(iter_entries(path, report))
+        if report.errors and not args.force:
+            for e in report.errors:
+                print(f"ERROR {e}", file=sys.stderr)
+            print("refusing to rotate a file with validation errors (use --force)",
+                  file=sys.stderr)
+            return 2
 
-    # If archive already exists, append to it.
-    archive_prev = archive.read_text() if archive.exists() else ""
-    archive_block = _render(archived)
-    # File-level header: preserve the ORIGINAL header from the live file
-    # on the archive's first write.
-    if not archive_prev:
-        # Pick everything before the first `<!-- memory-entry:start -->`
-        # from the live file as the header.
-        live_text = path.read_text()
+        # Pick entries to KEEP in the live file.
+        if since_date is not None:
+            kept = [e for e in entries if _keep(e)]
+            archived = [e for e in entries if not _keep(e)]
+        else:
+            if keep_last is None or keep_last <= 0:
+                print("--keep-last must be a positive integer when --since is absent",
+                      file=sys.stderr)
+                return 2
+            kept = entries[-keep_last:]
+            archived = entries[:-keep_last] if keep_last < len(entries) else []
+
+        if not kept:
+            print("rotate would leave the live file with zero entries; refusing",
+                  file=sys.stderr)
+            return 2
+        if not archived:
+            print("nothing to rotate (archive would be empty)")
+            return 0
+
+        # Archive name: <stem>.archive-<YYYY-MM-DD>.md. The dot (not dash)
+        # matters: discovery matches `<stem>.*`, so a dotted archive stays
+        # visible to validation and to the global id-uniqueness scan --
+        # rotated ids can never be silently re-issued. (Legacy
+        # `<stem>-archive-<date>.md` files from older pack versions are
+        # still discovered for backward compat.)
+        today = dt.date.today().isoformat()
+        stem = path.stem
+        archive = path.with_name(f"{stem}.archive-{today}.md")
+
+        # If archive already exists, append to it.
+        archive_prev = archive.read_text(encoding="utf-8") if archive.exists() else ""
+        archive_block = _render(archived)
+        # File-level header: preserve the ORIGINAL header from the live file
+        # on the archive's first write.
+        if not archive_prev:
+            # Pick everything before the first `<!-- memory-entry:start -->`
+            # from the live file as the header.
+            live_text = path.read_text(encoding="utf-8")
+            cut = live_text.find("<!-- memory-entry:start -->")
+            header = live_text[:cut] if cut >= 0 else ""
+            archive_prev = header
+            if not archive_prev.endswith("\n"):
+                archive_prev += "\n"
+
+        if args.dry_run:
+            print(f"would rotate {len(archived)} entry/ies into {archive.name}")
+            print(f"live file would keep {len(kept)} entry/ies")
+            return 0
+
+        archive.write_text(archive_prev + archive_block, encoding="utf-8")
+
+        # Rewrite live file: preserve header (everything before first entry),
+        # then emit the kept entries.
+        live_text = path.read_text(encoding="utf-8")
         cut = live_text.find("<!-- memory-entry:start -->")
         header = live_text[:cut] if cut >= 0 else ""
-        archive_prev = header
-        if not archive_prev.endswith("\n"):
-            archive_prev += "\n"
+        path.write_text(header + _render(kept), encoding="utf-8")
 
-    if args.dry_run:
-        print(f"would rotate {len(archived)} entry/ies into {archive.name}")
-        print(f"live file would keep {len(kept)} entry/ies")
-        return 0
-
-    archive.write_text(archive_prev + archive_block)
-
-    # Rewrite live file: preserve header (everything before first entry),
-    # then emit the kept entries.
-    live_text = path.read_text()
-    cut = live_text.find("<!-- memory-entry:start -->")
-    header = live_text[:cut] if cut >= 0 else ""
-    path.write_text(header + _render(kept))
-
-    # Re-validate both outputs.
-    v_live = validate([path])
-    v_arch = validate([archive])
-    if v_live.errors or v_arch.errors:
-        for e in v_live.errors + v_arch.errors:
-            print(f"ERROR {e}", file=sys.stderr)
-        print("rotate produced invalid output (see errors above)", file=sys.stderr)
-        return 1
+        # Re-validate both outputs.
+        v_live = validate([path])
+        v_arch = validate([archive])
+        if v_live.errors or v_arch.errors:
+            for e in v_live.errors + v_arch.errors:
+                print(f"ERROR {e}", file=sys.stderr)
+            print("rotate produced invalid output (see errors above)", file=sys.stderr)
+            return 1
 
     print(f"rotated {len(archived)} entry/ies -> {archive.name}; "
           f"live file kept {len(kept)} entry/ies")
@@ -892,6 +1125,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
     else:
         files = discover_files(memory_dir())
     report = validate(files, strict=args.strict)
+    for n in report.notices:
+        print(f"NOTE  {n}", file=sys.stderr)
     for w in report.warnings:
         print(f"WARN  {w}", file=sys.stderr)
     for e in report.errors:

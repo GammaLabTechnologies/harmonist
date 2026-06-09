@@ -129,20 +129,36 @@ fi
 # called. This is the mechanical answer to "persona says X, AGENTS.md
 # says Y" -- authority lives in this injection.
 project_context=""
-# Walk up from $HOOKS_DIR trying to find a project-scoped project_context.py
-# (post-integration layout) or the pack-local copy.
+# Locate the pack checkout by SIGNATURE (a dir containing
+# agents/scripts/project_context.py) -- aligned with
+# hook_runner.py::_discover_pack_dir, never the hardcoded clone name
+# `harmonist`. Candidates: the hooks dir's parent (pack-development /
+# post-integration sibling), then the project root itself, then each
+# non-hidden immediate subdirectory of the project root.
 pc_script=""
-for cand in \
-    "$HOOKS_DIR/../scripts/project_context.py" \
-    "$HOOKS_DIR/../.cursor/scripts/project_context.py" \
-    "$(dirname "$HOOKS_DIR")/agents/scripts/project_context.py" \
-; do
-  if [[ -f "$cand" ]]; then
-    pc_script="$cand"
-    break
-  fi
-done
+pack_hint="<pack-dir>"
+if [[ -f "$(dirname "$HOOKS_DIR")/agents/scripts/project_context.py" ]]; then
+  pc_script="$(dirname "$HOOKS_DIR")/agents/scripts/project_context.py"
+fi
+if [[ -z "$pc_script" ]]; then
+  for root in "$PWD" "$(dirname "$(dirname "$HOOKS_DIR")")"; do
+    [[ -d "$root" ]] || continue
+    if [[ -f "$root/agents/scripts/project_context.py" ]]; then
+      pc_script="$root/agents/scripts/project_context.py"
+      break
+    fi
+    for child in "$root"/*/; do
+      [[ -d "$child" ]] || continue
+      case "$(basename "$child")" in .*) continue ;; esac
+      if [[ -f "${child}agents/scripts/project_context.py" ]]; then
+        pc_script="${child}agents/scripts/project_context.py"
+        break 2
+      fi
+    done
+  done
+fi
 if [[ -n "$pc_script" ]]; then
+  pack_hint="$(basename "$(dirname "$(dirname "$(dirname "$pc_script")")")")"
   project_context="$(python3 "$pc_script" --max-chars 1200 2>/dev/null || true)"
 fi
 
@@ -158,7 +174,7 @@ Mandatory protocol reminders:
 2. Delegate subagent work via Task; the FIRST line of every subagent
    prompt MUST be 'AGENT: <slug>' (e.g. 'AGENT: qa-verifier'), and the
    prompt MUST include a project-precedence preamble (use
-   'python3 harmonist/agents/scripts/project_context.py' to
+   'python3 ${pack_hint}/agents/scripts/project_context.py' to
    generate it).
 3. After any code change: invoke qa-verifier (required) and any further
    reviewers the trigger table in AGENTS.md demands.

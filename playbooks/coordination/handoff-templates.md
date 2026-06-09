@@ -1,5 +1,11 @@
 # 📋 NEXUS Handoff Templates
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > Standardized templates for every type of agent-to-agent handoff in the NEXUS pipeline. Consistent handoffs prevent context loss — the #1 cause of multi-agent coordination failure.
 
 ---

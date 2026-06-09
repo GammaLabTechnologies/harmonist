@@ -51,7 +51,7 @@ style, protocol) lives in:
 
 1. Every script change must pass:
    ```
-   python3 agents/scripts/check_pack_health.py        # 18 checks
+   python3 agents/scripts/check_pack_health.py        # 19 checks
    bash hooks/tests/run-hook-tests.sh                 # 30 scenarios
    bash memory/tests/run-memory-tests.sh              # 29 scenarios
    ```
@@ -71,7 +71,7 @@ style, protocol) lives in:
 ## Pull request checklist
 
 - [ ] Linter clean: `python3 agents/scripts/lint_agents.py` — 0 errors.
-- [ ] Pack healthy: `python3 agents/scripts/check_pack_health.py` — 18/18.
+- [ ] Pack healthy: `python3 agents/scripts/check_pack_health.py` — 19/19.
 - [ ] Relevant test suites pass (see the list under "Change scripts").
 - [ ] Index and manifest regenerated and committed.
 - [ ] If a user-facing behaviour changed: `CHANGELOG.md` updated.
@@ -95,7 +95,7 @@ style, protocol) lives in:
 
 ## Release process (maintainers only)
 
-1. `python3 agents/scripts/check_pack_health.py` — must be 18/18.
+1. `python3 agents/scripts/check_pack_health.py` — must be 19/19.
 2. Full regression: `bash` every `agents/scripts/test_*.sh`,
    `hooks/tests/run-hook-tests.sh`, `memory/tests/run-memory-tests.sh`.
 3. Update `CHANGELOG.md`: move `[Unreleased]` entries under a new

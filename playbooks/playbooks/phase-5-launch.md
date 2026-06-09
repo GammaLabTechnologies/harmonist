@@ -1,5 +1,11 @@
 # 🚀 Phase 5 Playbook — Launch & Growth
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Duration**: 2-4 weeks (T-7 through T+14) | **Agents**: 12 | **Gate Keepers**: Studio Producer + Analytics Reporter
 
 ---
@@ -262,7 +268,7 @@ ACTIVATE Executive Summary Generator:
 ### For Continuous Improvement:
 - A/B test results and learnings (Experiment Tracker)
 - Process improvement recommendations (Workflow Optimizer)
-- Financial performance vs. projections (Finance Tracker)
+- Financial performance vs. projections (FP&A Analyst)
 - Compliance monitoring status (Legal Compliance Checker)
 
 ### Operational Cadences Established:

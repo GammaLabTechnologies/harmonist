@@ -88,5 +88,16 @@ Two layers:
 
 ## Migration
 
-Schema v1 is the first structured version. When a breaking change lands
-it will ship alongside `migrate.py` similar to `agents/scripts/migrate_schema.py`.
+Schema v1 is the first structured version. The migration registry already
+ships with the pack as `memory/migrations.py` and is installed into
+`.cursor/memory/` by the integration / upgrade flow. With no migrations
+registered it acts as a validating no-op: it scans every entry, flags
+unknown `schema_version` values (non-zero exit), and exits 0 on a clean
+corpus. When a breaking schema change lands, its upgrade function is
+registered there (see the module docstring for the exact workflow) and
+the upgrade flow runs it once per project:
+
+```bash
+python3 .cursor/memory/migrations.py            # dry-run
+python3 .cursor/memory/migrations.py --apply    # rewrite in place
+```

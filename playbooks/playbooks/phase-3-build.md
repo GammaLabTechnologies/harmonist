@@ -1,5 +1,11 @@
 # 🔨 Phase 3 Playbook — Build & Iterate
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Duration**: 2-12 weeks (varies by scope) | **Agents**: 15-30+ | **Gate Keeper**: Agents Orchestrator
 
 ---
@@ -49,12 +55,12 @@ FOR EACH task IN sprint_backlog (ordered by RICE score):
 | Task Category | Primary Agent | Backup Agent | QA Agent |
 |--------------|--------------|-------------|----------|
 | **React/Vue/Angular UI** | Frontend Developer | Rapid Prototyper | Evidence Collector |
-| **REST/GraphQL API** | Backend Architect | Senior Developer | API Tester |
+| **REST/GraphQL API** | Backend Architect | Laravel/Livewire Specialist | API Tester |
 | **Database operations** | Backend Architect | — | API Tester |
 | **Mobile (iOS/Android)** | Mobile App Builder | — | Evidence Collector |
 | **ML model/pipeline** | AI Engineer | — | Test Results Analyzer |
 | **CI/CD/Infrastructure** | DevOps Automator | Infrastructure Maintainer | Performance Benchmarker |
-| **Premium/complex feature** | Senior Developer | Backend Architect | Evidence Collector |
+| **Premium/complex feature** | Laravel/Livewire Specialist | Backend Architect | Evidence Collector |
 | **Quick prototype/POC** | Rapid Prototyper | Frontend Developer | Evidence Collector |
 | **WebXR/immersive** | XR Immersive Developer | — | Evidence Collector |
 | **visionOS** | visionOS Spatial Engineer | macOS Spatial/Metal Engineer | Evidence Collector |
@@ -82,7 +88,7 @@ For NEXUS-Full deployments, four tracks run simultaneously:
 ```
 Managed by: Agents Orchestrator (Dev↔QA loop)
 Agents: Frontend Developer, Backend Architect, AI Engineer,
-        Mobile App Builder, Senior Developer
+        Mobile App Builder, Laravel/Livewire Specialist
 QA: Evidence Collector, API Tester, Test Results Analyzer
 
 Sprint cadence: 2-week sprints

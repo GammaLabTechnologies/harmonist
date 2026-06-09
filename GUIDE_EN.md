@@ -70,7 +70,9 @@ table the orchestrator consults.
 
 ### Workflow protocol
 
-Every task goes through a strict protocol defined in `AGENTS.md`:
+Every task goes through a strict protocol defined in the **project's**
+`AGENTS.md` (generated at integration time from the pack's
+`AGENTS.template.md`):
 
 ```
 Pre-Task
@@ -109,10 +111,13 @@ Entries linked by **correlation ID** — trace task → decision → lesson.
 
 ## How to integrate
 
+> The pack folder may have any name — `<PACK_DIR>` below. Examples assume
+> it is named `harmonist`.
+
 ### Option 1 — Automatic (recommended)
 
 ```
-1. Copy harmonist/ into your project root
+1. Copy the pack into your project root as a SUBFOLDER (e.g. harmonist/)
 2. Open Cursor → Agent mode
 3. Type: "Read harmonist/integration-prompt.md and integrate"
 4. After integration — START A NEW CHAT
@@ -133,12 +138,25 @@ Cursor will:
 - Set up `.cursor/memory/`
 - Create `.cursor/rules/protocol-enforcement.mdc` and `project-domain-rules.mdc`
 
-### Option 2 — Manual
+### Option 2 — Without Cursor (CLI)
 
-1. Copy `AGENTS.md` to project root, fill in your stack
-2. Copy `agents/orchestration/` and `agents/review/` into `.cursor/agents/`
-3. Browse `agents/index.json`, pick specialists, copy into `.cursor/agents/`
-4. Copy `memory/` to `.cursor/memory/`
+Hand-copying files produces an **unenforced** setup (no hooks, no rules,
+no `.gitignore` hardening — `verify_integration.py` will fail it). Use the
+installer instead:
+
+```bash
+python3 harmonist/agents/scripts/integrate.py --pack harmonist --project .
+python3 harmonist/agents/scripts/verify_integration.py
+```
+
+`integrate.py` automates everything the manual path tends to miss: it
+creates the project `AGENTS.md` from `AGENTS.template.md`, runs
+`upgrade.py --apply` (hooks, strict agents, memory CLI, repo map, version
+anchors), bootstraps the Cursor rules pair, hardens `.gitignore` for
+memory privacy, seeds `bg-regression-runner` with your project's real
+commands, and finishes with the objective verifier. If you still need a
+truly manual install, replicate exactly those steps and re-run
+`verify_integration.py` until it exits 0.
 
 ### Adding specialists later
 
@@ -178,10 +196,11 @@ merges into `.cursor/pack-manifest.json`.
 ## Folder structure
 
 ```
-harmonist/
+<PACK_DIR>/                   (any name; examples assume harmonist/)
 ├── GUIDE_EN.md               ← you are here
 ├── README.md                 ← full documentation
-├── AGENTS.md                 ← orchestrator template
+├── AGENTS.template.md        ← orchestrator template (becomes the
+│                               project's AGENTS.md at integration)
 ├── integration-prompt.md     ← auto-integration prompt
 │
 ├── memory/                   ← memory templates

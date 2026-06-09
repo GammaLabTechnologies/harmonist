@@ -22,6 +22,8 @@ set -euo pipefail
 unset AGENT_PACK_HOOKS_STATE AGENT_PACK_MEMORY_CLI AGENT_PACK_TELEMETRY_DIR 2>/dev/null || true
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 SCAN="$PACK/agents/scripts/scan_rules_conflicts.py"
 UPGRADE="$PACK/agents/scripts/upgrade.py"
 TEMPLATE="$PACK/agents/templates/rules/protocol-enforcement.mdc"
@@ -219,7 +221,7 @@ python3 "$SCAN" --project "$p" >/dev/null && \
 printf "\n=== 9: upgrade.py installs canonical rule ===\n"
 p="$TMP/upgrade-fresh"
 mkdir -p "$p"
-cp "$PACK/AGENTS.md" "$p/AGENTS.md"
+cp "$PACK_TPL" "$p/AGENTS.md"
 python3 "$UPGRADE" --project "$p" --pack "$PACK" --apply >/dev/null 2>&1 || true
 [[ -f "$p/.cursor/rules/protocol-enforcement.mdc" ]] && \
   ok "protocol-enforcement.mdc installed" || \
@@ -236,7 +238,7 @@ python3 "$UPGRADE" --project "$p" --pack "$PACK" --apply >/dev/null 2>&1 || true
 printf "\n=== 10: upgrade spares user-customised rule (no marker) ===\n"
 p="$TMP/upgrade-user-own"
 mkdir -p "$p/.cursor/rules"
-cp "$PACK/AGENTS.md" "$p/AGENTS.md"
+cp "$PACK_TPL" "$p/AGENTS.md"
 # User wrote their own protocol-enforcement.mdc without the marker.
 cat > "$p/.cursor/rules/protocol-enforcement.mdc" <<'EOF'
 ---

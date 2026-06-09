@@ -22,10 +22,23 @@ cp -r "$PACK" "$PACK_MIRROR"
 # Remove any .git / CI noise that would confuse diff comparisons.
 rm -rf "$PACK_MIRROR/.git" "$PACK_MIRROR/.github" 2>/dev/null || true
 
+# Re-seed the mirror's MANIFEST so this suite validates upgrade.py logic,
+# not the working tree's release state (a release regenerates the manifest;
+# check_pack_health.py is the check that guards real manifest drift).
+python3 "$PACK_MIRROR/agents/scripts/build_manifest.py" >/dev/null 2>&1 || true
+
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+MIRROR_TPL="$PACK_MIRROR/AGENTS.template.md"
+[[ -f "$MIRROR_TPL" ]] || MIRROR_TPL="$PACK_MIRROR/AGENTS.md"
+
+# Version-agnostic fixtures: don't hard-code release numbers.
+V0="$(cat "$PACK_MIRROR/VERSION")"
+V_BUMP="$(python3 -c 'import sys;p=[int(x) for x in sys.argv[1].split("-")[0].split(".")[:3]];p[1]+=1;print(".".join(map(str,p)))' "$V0")"
+
 # Seed project: customised AGENTS.md + .cursor scaffolding the usual way.
 mkdir -p "$PROJ"
 sed 's/\[YOUR PROJECT — describe domain and what is at stake\]/upgrade-test fixture/' \
-  "$PACK_MIRROR/AGENTS.md" > "$PROJ/AGENTS.md"
+  "$MIRROR_TPL" > "$PROJ/AGENTS.md"
 # Add a customised bg-regression-runner so we can verify it survives.
 mkdir -p "$PROJ/.cursor/agents"
 cat > "$PROJ/.cursor/agents/bg-regression-runner.md" <<'EOF'
@@ -146,7 +159,7 @@ assert_file_exists "security-reviewer installed"       "$PROJ/.cursor/agents/sec
 assert_file_exists "memory.py installed"               "$PROJ/.cursor/memory/memory.py"
 assert_file_exists "validate.py installed"             "$PROJ/.cursor/memory/validate.py"
 assert_file_exists "pack-version.json created"         "$PROJ/.cursor/pack-version.json"
-assert_file_contains "pack-version matches VERSION"    "$PROJ/.cursor/pack-version.json" "\"pack_version\": \"1.0.0\""
+assert_file_contains "pack-version matches VERSION"    "$PROJ/.cursor/pack-version.json" "\"pack_version\": \"$V0\""
 
 # bg-regression-runner must remain the project's custom version.
 assert_file_contains "bg-regression stays project-custom"  \
@@ -163,11 +176,52 @@ assert_exit "second apply exits 0" "0" "$rc"
 
 # ---------------------------------------------------------------------------
 
+printf "\n=== 3b: --json reports the applied field truthfully ===\n"
+# Dry-run: the `applied` key must exist on every operation and stay false
+# (the report must not claim phantom writes).
+set +e
+dry_json="$(python3 "$SCRIPT" --project "$PROJ" --pack "$PACK_MIRROR" --json 2>/dev/null)"
+set -e
+if printf '%s' "$dry_json" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+ops = d["operations"]
+assert ops, "no operations in dry-run json"
+assert all("applied" in o for o in ops), "applied key missing from an op"
+assert all(o["applied"] is False for o in ops), "dry-run claimed applied=true"
+' 2>/dev/null; then
+  printf "  ok    dry-run JSON: applied=false on every op\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  dry-run JSON applied field wrong\n"; fail=$((fail + 1)); fail_list+=("json-applied-dry")
+fi
+# Real apply on a fresh throwaway project: ops that wrote bytes must say
+# applied=true; skipped/refused ops must not.
+PROJ_JSON="$TMP/proj-json"
+mkdir -p "$PROJ_JSON"
+cp "$PROJ/AGENTS.md" "$PROJ_JSON/AGENTS.md"
+set +e
+apply_json="$(python3 "$SCRIPT" --project "$PROJ_JSON" --pack "$PACK_MIRROR" --apply --json 2>/dev/null)"
+set -e
+if printf '%s' "$apply_json" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+ops = d["operations"]
+assert any(o["applied"] for o in ops), "no op recorded applied=true on a real apply"
+assert all(not o["applied"] for o in ops if o["action"] in ("skip", "refused")), \
+    "skip/refused op claims applied=true"
+' 2>/dev/null; then
+  printf "  ok    apply JSON: applied=true only on real writes\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  apply JSON applied field wrong\n"; fail=$((fail + 1)); fail_list+=("json-applied-apply")
+fi
+
+# ---------------------------------------------------------------------------
+
 printf "\n=== 4: pack bump refreshes strict agents, spares project files ===\n"
 # Bump pack version + alter a strict agent in the MIRROR only.
 # A real pack release also regenerates MANIFEST.sha256 so the supply-
 # chain guard still trusts the new bytes; simulate that here.
-echo "1.1.0" > "$PACK_MIRROR/VERSION"
+echo "$V_BUMP" > "$PACK_MIRROR/VERSION"
 printf "\n<!-- upgrade-test-sentinel -->\n" >> "$PACK_MIRROR/agents/review/qa-verifier.md"
 if [[ -f "$PACK_MIRROR/agents/scripts/build_manifest.py" ]]; then
   python3 "$PACK_MIRROR/agents/scripts/build_manifest.py" >/dev/null
@@ -185,8 +239,8 @@ set -e
 assert_exit "bump apply exits 1 (changes)" "1" "$rc"
 assert_file_contains "qa-verifier refreshed with sentinel"  \
   "$PROJ/.cursor/agents/qa-verifier.md" "upgrade-test-sentinel"
-assert_file_contains "pack-version updated to 1.1.0"  \
-  "$PROJ/.cursor/pack-version.json" "\"pack_version\": \"1.1.0\""
+assert_file_contains "pack-version updated to $V_BUMP"  \
+  "$PROJ/.cursor/pack-version.json" "\"pack_version\": \"$V_BUMP\""
 
 # Project-owned files unchanged.
 diff -q "$PROJ/AGENTS.md" "$TMP/AGENTS-before.md" > /dev/null \
@@ -205,7 +259,7 @@ diff -q "$PROJ/.cursor/agents/bg-regression-runner.md" "$TMP/bg-before.md" > /de
 # ---------------------------------------------------------------------------
 
 printf "\n=== 5: downgrade refused ===\n"
-echo "0.9.0" > "$PACK_MIRROR/VERSION"
+echo "0.0.1" > "$PACK_MIRROR/VERSION"
 set +e
 python3 "$SCRIPT" --project "$PROJ" --pack "$PACK_MIRROR" --apply > /dev/null 2>&1
 rc=$?
@@ -215,14 +269,14 @@ assert_exit "downgrade refused (exit=2)" "2" "$rc"
 # ---------------------------------------------------------------------------
 
 printf "\n=== 6: snapshots + rollback ===\n"
-# Restore pack to 1.1.0 so further applies work.
-echo "1.1.0" > "$PACK_MIRROR/VERSION"
+# Restore pack to the bumped version so further applies work.
+echo "$V_BUMP" > "$PACK_MIRROR/VERSION"
 python3 "$PACK_MIRROR/agents/scripts/build_manifest.py" >/dev/null
 
 # A fresh project fixture, so this test doesn't depend on state from 1-5.
 ROLL_PROJ="$TMP/roll-proj"
 mkdir -p "$ROLL_PROJ"
-cp "$PACK_MIRROR/AGENTS.md" "$ROLL_PROJ/AGENTS.md"
+cp "$MIRROR_TPL" "$ROLL_PROJ/AGENTS.md"
 echo "# user-existing" > "$ROLL_PROJ/.gitignore"
 
 # First apply -> creates snapshot
@@ -292,7 +346,7 @@ fi
 printf "\n=== 7: --no-snapshot skips taking a snapshot ===\n"
 NO_SNAP_PROJ="$TMP/nosnap-proj"
 mkdir -p "$NO_SNAP_PROJ"
-cp "$PACK_MIRROR/AGENTS.md" "$NO_SNAP_PROJ/AGENTS.md"
+cp "$MIRROR_TPL" "$NO_SNAP_PROJ/AGENTS.md"
 python3 "$SCRIPT" --project "$NO_SNAP_PROJ" --pack "$PACK_MIRROR" --apply --no-snapshot > /dev/null 2>&1 || true
 if [[ ! -d "$NO_SNAP_PROJ/.cursor/.integration-snapshots" ]]; then
   printf "  ok    --no-snapshot did not create snapshot dir\n"; pass=$((pass + 1))

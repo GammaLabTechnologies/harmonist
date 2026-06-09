@@ -68,6 +68,8 @@ No code changes to the agent files. No API calls to write. The MCP tools handle 
 
 See [backend-architect-with-memory.md](backend-architect-with-memory.md) for a complete example — the standard Backend Architect agent with a Memory Integration section added.
 
+> Note: `backend-architect-with-memory.md` deliberately uses Claude-Code frontmatter (`name` / `description` / `color`), not the pack's Schema v2 — it is a drop-in example for Claude Code, not a catalog agent.
+
 ## Example: Memory-Powered Workflow
 
 See [../../examples/workflow-with-memory.md](../../examples/workflow-with-memory.md) for the Startup MVP workflow enhanced with persistent memory, showing how agents pass context through memory instead of copy-paste.

@@ -24,14 +24,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -46,14 +78,15 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 MIN_AGENTS_MD_LINES = 150
-STRICT_AGENT_SLUGS = {
-    "repo-scout",
-    "security-reviewer",
-    "code-quality-auditor",
-    "qa-verifier",
-    "sre-observability",
-    "bg-regression-runner",
-}
+
+# Strict agents every integrated project must carry: derived from
+# agents/index.json via the shared strict_slugs module (includes
+# wcag-a11y-gate, which the hand-copied list here used to miss).
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+from strict_slugs import VERIFIED as STRICT_AGENT_SLUGS  # noqa: E402
+
 MIN_SPECIALISTS = 3
 MIN_DOMAIN_RULES = 5
 
@@ -109,7 +142,7 @@ def check_agents_md_exists(proj: Path) -> CheckResult:
     return CheckResult(
         "agents-md-exists", "error", False,
         "AGENTS.md missing from project root",
-        "Create AGENTS.md using harmonist/AGENTS.md as a template.",
+        "Create AGENTS.md using the pack's AGENTS.template.md as a template.",
     )
 
 
@@ -261,7 +294,7 @@ def check_strict_agents_installed(proj: Path) -> CheckResult:
     missing = sorted(STRICT_AGENT_SLUGS - installed)
     if not missing:
         return CheckResult("strict-agents-installed", "error", True,
-                           "all 6 orchestration+review agents present")
+                           f"all {len(STRICT_AGENT_SLUGS)} orchestration+review agents present")
     return CheckResult(
         "strict-agents-installed", "error", False,
         f"missing strict agents in .cursor/agents/: {missing}",
@@ -569,7 +602,7 @@ def check_agents_md_markers(proj: Path) -> CheckResult:
             "agents-md-markers", "warning", False,
             "AGENTS.md has no pack-owned markers -- future `upgrade.py` cannot "
             "merge pack updates cleanly",
-            "Run a one-time bootstrap: copy the pack's AGENTS.md again, then "
+            "Run a one-time bootstrap: copy the pack's AGENTS.template.md again, then "
             "re-apply your Platform Stack / Modules / Invariants / Resilience "
             "customisations between the marker blocks.",
         )
@@ -644,6 +677,33 @@ def check_gitignore_memory(proj: Path) -> CheckResult:
     )
 
 
+def _locate_pack_dir(proj: Path) -> Path | None:
+    """Find the pack checkout near the project. The pack dir may carry ANY
+    name (not just `harmonist/`): prefer the pack this script itself lives
+    in, then scan the project root's immediate subdirectories and the
+    parent's for a dir with `agents/index.json` AND
+    `agents/scripts/check_pack_health.py`."""
+    candidates: list[Path] = [Path(__file__).resolve().parent.parent.parent]
+    for base in (proj, proj.parent):
+        try:
+            candidates.extend(sorted(p for p in base.iterdir() if p.is_dir()))
+        except OSError:
+            continue
+    for c in candidates:
+        if (c / "agents" / "index.json").exists() and \
+                (c / "agents" / "scripts" / "check_pack_health.py").exists():
+            return c
+    return None
+
+
+def _locate_pack_script(proj: Path, name: str) -> Path | None:
+    pack = _locate_pack_dir(proj)
+    if pack is None:
+        return None
+    script = pack / "agents" / "scripts" / name
+    return script if script.exists() else None
+
+
 def check_rules_conflicts(proj: Path) -> CheckResult:
     """Run scan_rules_conflicts.py against the project's
     .cursor/rules/. Fails on any error-severity finding (directives
@@ -657,14 +717,7 @@ def check_rules_conflicts(proj: Path) -> CheckResult:
             "Re-run integration step 8 to install "
             "protocol-enforcement.mdc + project-domain-rules.mdc.",
         )
-    scanner = None
-    for candidate in [
-        proj / "harmonist" / "agents" / "scripts" / "scan_rules_conflicts.py",
-        proj.parent / "harmonist" / "agents" / "scripts" / "scan_rules_conflicts.py",
-    ]:
-        if candidate.exists():
-            scanner = candidate
-            break
+    scanner = _locate_pack_script(proj, "scan_rules_conflicts.py")
     if scanner is None:
         return CheckResult(
             "rules-conflicts", "warning", False,
@@ -713,20 +766,14 @@ def check_installed_agent_safety(proj: Path) -> CheckResult:
             "installed-agent-safety", "warning", False,
             ".cursor/agents/ missing -- nothing to scan",
         )
-    scanner = None
-    # Locate scan_agent_safety.py -- the pack is typically a sibling of proj.
-    for candidate in [
-        proj / "harmonist" / "agents" / "scripts" / "scan_agent_safety.py",
-        proj.parent / "harmonist" / "agents" / "scripts" / "scan_agent_safety.py",
-    ]:
-        if candidate.exists():
-            scanner = candidate
-            break
+    # Locate scan_agent_safety.py -- the pack (any dir name) is typically a
+    # subdirectory or sibling of proj.
+    scanner = _locate_pack_script(proj, "scan_agent_safety.py")
     if scanner is None:
         return CheckResult(
             "installed-agent-safety", "warning", False,
             "scan_agent_safety.py not found next to the project",
-            "Ensure harmonist is a sibling / subdirectory of the "
+            "Ensure the pack is a sibling / subdirectory of the "
             "project and re-run.",
         )
     import subprocess  # local import; verify_integration is otherwise stdlib-only

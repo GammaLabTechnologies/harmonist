@@ -1,5 +1,11 @@
 # 🔍 Phase 0 Playbook — Intelligence & Discovery
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Duration**: 3-7 days | **Agents**: 6 | **Gate Keeper**: Executive Summary Generator
 
 ---

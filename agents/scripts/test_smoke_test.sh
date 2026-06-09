@@ -8,6 +8,8 @@ set -euo pipefail
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/smoke_test.py"
 UPGRADE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/upgrade.py"
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 TMP="$(mktemp -d)"
 trap "rm -rf $TMP" EXIT
 
@@ -22,7 +24,7 @@ ko() { printf "  FAIL  %s\n" "$1"; fail=$((fail + 1)); }
 
 printf "\n=== 1: fully integrated project ===\n"
 proj="$TMP/full"; mkdir -p "$proj"
-cp "$PACK/AGENTS.md" "$proj/AGENTS.md"
+cp "$PACK_TPL" "$proj/AGENTS.md"
 python3 "$UPGRADE" --project "$proj" --pack "$PACK" --apply >/dev/null || true
 
 set +e
@@ -69,7 +71,7 @@ fi
 
 printf "\n=== 3: preflight bail-out when hooks missing ===\n"
 broken="$TMP/broken"; mkdir -p "$broken"
-cp "$PACK/AGENTS.md" "$broken/AGENTS.md"
+cp "$PACK_TPL" "$broken/AGENTS.md"
 # Create ONLY AGENTS.md -- no .cursor at all
 set +e
 python3 "$SCRIPT" --project "$broken" >/dev/null 2>&1

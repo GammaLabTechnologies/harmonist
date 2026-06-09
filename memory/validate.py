@@ -19,14 +19,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -79,6 +111,12 @@ class Entry:
 class Report:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Advisory findings that must NEVER fail validation -- not even under
+    # --strict. Used for conditions that are suspicious but self-healing
+    # (e.g. non-monotonic `at` after a system clock correction): escalating
+    # them would poison the file forever and wedge the stop gate on every
+    # future task.
+    notices: list[str] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- frontmatter parsing
@@ -115,7 +153,19 @@ def parse_frontmatter(raw: str, source: str, line_offset: int, report: Report) -
 
 def iter_entries(path: Path, report: Report) -> Iterable[Entry]:
     """Yield each <!-- memory-entry:start --> ... <!-- memory-entry:end --> block."""
-    lines = path.read_text().splitlines()
+    # Explicit UTF-8: Windows' locale default is cp1252, which would crash
+    # on any non-ASCII body. errors="replace" because we read for checks --
+    # a stray invalid byte must not abort validation entirely.
+    raw_text = path.read_text(encoding="utf-8", errors="replace")
+    if "\ufffd" in raw_text:
+        # errors="replace" silently masks corruption; surface it. A notice
+        # (never an error): the file may also legitimately contain U+FFFD.
+        report.notices.append(
+            f"{path}: contains U+FFFD replacement character(s) -- the file "
+            "was not valid UTF-8 and some bytes were replaced during read "
+            "(advisory; check the file's encoding)"
+        )
+    lines = raw_text.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i].strip()
@@ -251,15 +301,19 @@ def _check_body(entry: Entry, report: Report) -> None:
         )
 
 
+def kind_for_filename(name: str) -> "str | None":
+    """Resolve the required `kind` for a memory filename. Covers the base
+    names, *.shared.md / *.archive-<date>.md variants (any `<stem>.` prefix
+    match), and the legacy `<stem>-archive-<date>.md` rotation naming."""
+    for base, kind in FILE_KIND.items():
+        stem = base.removesuffix(".md")
+        if name == base or name.startswith(stem + ".") or name.startswith(stem + "-archive-"):
+            return kind
+    return None
+
+
 def _check_file_kind(entry: Entry, report: Report) -> None:
-    expected = FILE_KIND.get(entry.file.name)
-    # Support *.shared.md variants (e.g. decisions.shared.md → decision)
-    if expected is None:
-        for base, kind in FILE_KIND.items():
-            stem = base.removesuffix(".md")
-            if entry.file.name.startswith(stem + ".") or entry.file.name == base:
-                expected = kind
-                break
+    expected = kind_for_filename(entry.file.name)
     if expected is None:
         report.warnings.append(
             f"{entry.file}: not a recognized memory filename; skipping kind check"
@@ -273,6 +327,12 @@ def _check_file_kind(entry: Entry, report: Report) -> None:
 
 
 def _check_monotonic_at(entries: list[Entry], report: Report) -> None:
+    # Non-monotonic `at` is a NOTICE, never an error: a system clock
+    # correction (NTP step, timezone fix, VM resume) writes one entry
+    # "before" its predecessor, and there is no way to repair it afterwards
+    # -- memory is append-only. Hard-failing here would brick the file
+    # forever and block the stop gate on every future task, so we surface
+    # the anomaly without failing validation (not even under --strict).
     prev: dt.datetime | None = None
     prev_line = 0
     for e in entries:
@@ -284,9 +344,10 @@ def _check_monotonic_at(entries: list[Entry], report: Report) -> None:
         except ValueError:
             continue
         if prev is not None and cur < prev:
-            report.errors.append(
+            report.notices.append(
                 f"{e.file}:{e.line_start}: at={at} earlier than previous entry "
-                f"at line {prev_line}; memory is append-only, entries must be monotonic"
+                f"at line {prev_line}; entries are normally monotonic -- "
+                f"likely a system clock correction (advisory only)"
             )
         prev, prev_line = cur, e.line_start
 
@@ -295,19 +356,19 @@ def _check_monotonic_at(entries: list[Entry], report: Report) -> None:
 
 
 def discover_files(base: Path) -> list[Path]:
-    """Find all memory files under `base` (files whose stem starts with the
-    canonical names, so *.shared.md variants are picked up too)."""
+    """Find all memory files under `base`: the canonical names, *.shared.md
+    variants, rotation archives (`decisions.archive-<date>.md`), and legacy
+    archives (`decisions-archive-<date>.md`). Archives MUST be discovered:
+    otherwise rotated ids fall out of the global-uniqueness check and can be
+    silently re-issued, and archives are never re-validated."""
     if not base.exists():
         return []
     files: list[Path] = []
     for p in sorted(base.iterdir()):
         if not p.is_file() or p.suffix != ".md":
             continue
-        for stem in FILE_KIND:
-            bare = stem.removesuffix(".md")
-            if p.name == stem or p.name.startswith(bare + "."):
-                files.append(p)
-                break
+        if kind_for_filename(p.name) is not None:
+            files.append(p)
     return files
 
 
@@ -372,6 +433,8 @@ def main(argv: list[str]) -> int:
 
     report = validate(files, strict=args.strict)
 
+    for n in report.notices:
+        print(f"NOTE  {n}", file=sys.stderr)
     for w in report.warnings:
         print(f"WARN  {w}", file=sys.stderr)
     for e in report.errors:
@@ -381,7 +444,8 @@ def main(argv: list[str]) -> int:
         print(
             f"Memory schema v{SCHEMA_VERSION}: "
             f"{len(files)} file(s), "
-            f"{len(report.errors)} error(s), {len(report.warnings)} warning(s).",
+            f"{len(report.errors)} error(s), {len(report.warnings)} warning(s), "
+            f"{len(report.notices)} notice(s).",
             file=sys.stderr,
         )
         print("PASSED" if not report.errors else "FAILED", file=sys.stderr)

@@ -23,13 +23,21 @@ if pending is not None:
     slug = pending.get("slug")
     if slug and slug in CFG["reviewer_slugs"] and slug not in STATE["reviewers_seen"]:
         STATE["reviewers_seen"].append(slug)
-    # Capability scoping: pop this slug off `active_readonly_subagents`
-    # so subsequent writes outside this invocation arent flagged.
-    if slug:
-        actives = STATE.get("active_readonly_subagents") or []
-        if slug in actives:
-            actives.remove(slug)
-            STATE["active_readonly_subagents"] = actives
+# Capability scoping: reconcile `active_readonly_subagents` against the
+# OPEN call records (mirrors hook_runner.phase_subagent_stop). A slug
+# stays active only while at least one of its invocations is still open;
+# this also clears stragglers when the stop matched NO open record (e.g.
+# a task bump consumed the record before a late background-reviewer stop
+# arrived) -- otherwise the readonly flag sticks forever and every later
+# edit records an un-remediable violation.
+open_slugs = set()
+for call in STATE.get("subagent_calls", []):
+    if not (call.get("completed") or call.get("stopped_at")):
+        s = call.get("slug")
+        if s:
+            open_slugs.add(s)
+actives = STATE.get("active_readonly_subagents") or []
+STATE["active_readonly_subagents"] = [s for s in actives if s in open_slugs]
 '
 
 log_event "subagentStop reviewers_seen=$(state_read | python3 -c 'import json,sys;print(",".join(json.load(sys.stdin)[\"reviewers_seen\"]))' 2>/dev/null || echo "?")"

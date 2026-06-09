@@ -174,15 +174,17 @@ if slug and readonly_flag:
         actives.append(slug)
 '
 
-log_event "subagentStart slug=$(json_get subagent_type) type=$(json_get type)"
-
-# Telemetry: bump per-slug invocation counter if the AGENT: marker was
-# present. Reading it back out of state is simpler than re-parsing the
-# prompt -- the python block above already extracted it.
+# Read the slug the python block above extracted, then log it under the
+# CORRECT label. (This line used to log `slug=$(json_get subagent_type)`,
+# which mislabelled the subagent TYPE -- e.g. generalPurpose -- as the slug.)
 slug="$(state_read | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 calls=d.get("subagent_calls") or []
 if calls: print(calls[-1].get("slug") or "")' 2>/dev/null || true)"
+
+log_event "subagentStart slug=${slug:-"(none)"} type=$(json_get subagent_type)"
+
+# Telemetry: bump per-slug invocation counter if the AGENT: marker was present.
 if [[ -n "$slug" && "$slug" != "None" ]]; then
   bump_telemetry_agent "$slug"
 fi

@@ -166,10 +166,81 @@ action `ask`) and tuned to leave routine commands (e.g. `rm -rf node_modules`)
 alone — only catastrophic ones pause. Counted under `summaries.hitl_gated`.
 This phase is handled by the Python hook runner (the active path on every OS).
 
+## Limitations & operational notes
+
+Read this section before relying on the gate in anger.
+
+### One project, one Cursor window
+
+All hooks share a single per-project state file
+(`.cursor/hooks/.state/session.json`). If you open the **same project in
+two Cursor windows**, both write to that file, and the second window's
+`sessionStart` **resets it** — clobbering the first window's in-flight
+task state (recorded writes, credited reviewers, correlation id). The
+gate's verdicts then become unpredictable for both windows: a task can
+be blocked for steps it already did, or allowed because its writes were
+wiped. Recommendation: keep enforced work in **one window per project**.
+Concurrent hook *invocations within one window* are fine — they are
+serialized by an advisory lock on `session.json.lock` (with a ~10s
+timeout; on timeout the hook logs a warning to `activity.log` and
+proceeds unlocked rather than freezing Cursor).
+
+### `loop_limit` lives in TWO files — keep them in sync manually
+
+- `hooks.json` → `loop_limit` on the `stop` hook is **Cursor's** retry cap.
+- `config.json` → `loop_limit` is what the **gate itself** uses to decide
+  when to fail-closed (`emit_exhausted`, incident record, task bump).
+
+Nothing synchronizes them. If `hooks.json` allows more retries than
+`config.json`, the gate exhausts early; if fewer, Cursor stops retrying
+before the gate's fail-closed branch can fire and the last followup is
+simply surfaced to the user. When you change one, change the other.
+
+### python3 ≥ 3.9 is required
+
+Every hook (including the `.sh` reference path, whose helpers shell out
+to Python) needs `python3` on PATH:
+
+- **python3 present but < 3.9**: most scripts exit immediately with code 3
+  and a clear upgrade message (the `PY-GUARD` preamble). `hook_runner.py`
+  is the exception: its guard still answers Cursor in-protocol (exit 0)
+  so the enforcement layer degrades **loudly** instead of vanishing —
+  recorder phases emit `{}`, `beforeShellExecution` returns
+  `{"permission": "ask"}` naming the python requirement, and `stop`
+  returns a `followup_message` stating the protocol gate cannot be
+  verified until python3 is upgraded.
+- **python3 missing entirely**: the hook command fails to start, Cursor
+  receives no JSON, and treats the event as un-hooked — recorder phases
+  record nothing and the stop gate never fires. **Enforcement silently
+  degrades to OFF.** The only exception is the POSIX `gate-shell.sh`,
+  which asks for human confirmation when it cannot evaluate a command.
+  Verify in *Settings → Hooks* that all six hooks loaded without errors
+  after installation.
+
+### The gates are process nudges, not a security boundary
+
+`.cursor/` state and config (`hooks/.state/session.json`, `hooks/config.json`)
+match the default `skip_path_patterns`, so an agent's edit tool can rewrite
+them without the write being recorded; and `PROTOCOL-SKIP` is honor-system —
+logged and telemetry-audited (sessionStart surfaces an abuse banner), never
+blocked. The gates keep honest-but-forgetful agents on protocol; they are
+not tamper-proof against a deliberately adversarial one.
+
+### Per-event interpreter spawn cost
+
+Every hook event — including **every single shell command** via
+`beforeShellExecution` — spawns a fresh `python3` process (typically
+~30–100 ms; more on cold AV-scanned Windows machines or network
+filesystems). For shell-heavy sessions this adds noticeable latency per
+command. Setting `hitl_enabled: false` skips the pattern evaluation but
+still spawns the interpreter; to remove the cost entirely, delete the
+`beforeShellExecution` entry from `hooks.json` (you lose the HITL gate).
+
 ## Debugging
 
 - Per-session state: `.cursor/hooks/.state/session.json`
-- Activity log: `.cursor/hooks/.state/activity.log`
+- Activity log: `.cursor/hooks/.state/activity.log` (auto-capped at ~1 MiB —
+  the older half is discarded on rotation)
 - Cursor UI: *Settings → Hooks* shows load status and recent invocations.
 
 If the gate is blocking when it shouldn't: inspect `session.json` — it

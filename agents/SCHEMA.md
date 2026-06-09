@@ -389,6 +389,7 @@ The allowed values for `domains:` are kept in
 | `academic` | Research-style deep analysis (history, psychology, anthropology, narratology). |
 | `gov-tech` | Government digital / public-sector-specific. |
 | `education` | Education-vertical specialists (e.g. study-abroad). |
+| `pentest` | Authorized offensive security engagements (recon, exploitation, red team, pentest reporting). Hidden from every project that does not explicitly declare it. |
 
 Agents with two genuine contexts may list both (`[china-market, healthcare]`
 for the China healthcare marketing compliance specialist).

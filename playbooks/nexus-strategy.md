@@ -1,5 +1,11 @@
 # 🌐 NEXUS — Network of EXperts, Unified in Strategy
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 ## Complete Operational Playbook for Multi-Agent Orchestration
 
 > **NEXUS** transforms independent AI specialists into a synchronized intelligence network. This is not a prompt collection — it is a **deployment doctrine** that turns this collection into a force multiplier for any project, product, or organization.
@@ -58,15 +64,15 @@ Individual agents are powerful. But without coordination, they produce:
 
 | Division | Agents | Primary NEXUS Role |
 |----------|--------|--------------------|
-| **Engineering** | Frontend Developer, Backend Architect, Mobile App Builder, AI Engineer, DevOps Automator, Rapid Prototyper, Senior Developer | Build, deploy, and maintain all technical systems |
+| **Engineering** | Frontend Developer, Backend Architect, Mobile App Builder, AI Engineer, DevOps Automator, Rapid Prototyper, Laravel/Livewire Specialist | Build, deploy, and maintain all technical systems |
 | **Design** | UI Designer, UX Researcher, UX Architect, Brand Guardian, Visual Storyteller, Whimsy Injector, Image Prompt Engineer | Define visual identity, user experience, and brand consistency |
 | **Marketing** | Growth Hacker, Content Creator, Twitter Engager, TikTok Strategist, Instagram Curator, Reddit Community Builder, App Store Optimizer, Social Media Strategist | Drive acquisition, engagement, and market presence |
 | **Product** | Sprint Prioritizer, Trend Researcher, Feedback Synthesizer | Define what to build, when, and why |
-| **Project Management** | Studio Producer, Project Shepherd, Studio Operations, Experiment Tracker, Senior Project Manager | Orchestrate timelines, resources, and cross-functional coordination |
+| **Project Management** | Studio Producer, Project Shepherd, Studio Operations, Experiment Tracker, Laravel/Livewire Project Manager | Orchestrate timelines, resources, and cross-functional coordination |
 | **Testing** | Evidence Collector, Reality Checker, Test Results Analyzer, Performance Benchmarker, API Tester, Tool Evaluator, Workflow Optimizer | Verify quality through evidence-based assessment |
-| **Support** | Support Responder, Analytics Reporter, Finance Tracker, Infrastructure Maintainer, Legal Compliance Checker, Executive Summary Generator | Sustain operations, compliance, and business intelligence |
+| **Support** | Support Responder, Analytics Reporter, FP&A Analyst, Infrastructure Maintainer, Legal Compliance Checker, Executive Summary Generator | Sustain operations, compliance, and business intelligence |
 | **Spatial Computing** | XR Interface Architect, macOS Spatial/Metal Engineer, XR Immersive Developer, XR Cockpit Interaction Specialist, visionOS Spatial Engineer, Terminal Integration Specialist | Build immersive and spatial computing experiences |
-| **Specialized** | Agents Orchestrator, Analytics Reporter, LSP/Index Engineer, Sales Data Extraction Agent, Data Consolidation Agent, Report Distribution Agent | Cross-cutting coordination, deep analytics, and code intelligence |
+| **Specialized** | Agents Orchestrator, Analytics Reporter, LSP/Index Engineer, Sales Data Extraction Agent, Pipeline Analyst, Report Distribution Agent | Cross-cutting coordination, deep analytics, and code intelligence |
 
 ---
 
@@ -103,8 +109,8 @@ Individual agents are powerful. But without coordination, they produce:
               ┌────────────────┼────────────────┐
               │                │                │
      ┌────────▼──────┐ ┌──────▼───────┐ ┌──────▼──────────┐
-     │ Studio        │ │ Project      │ │ Senior Project   │
-     │ Producer      │ │ Shepherd     │ │ Manager          │
+     │ Studio        │ │ Project      │ │ Laravel/Livewire │
+     │ Producer      │ │ Shepherd     │ │ PM               │
      │ (Portfolio)   │ │ (Execution)  │ │ (Task Scoping)   │
      └───────────────┘ └──────────────┘ └─────────────────┘
               │                │                │
@@ -187,13 +193,13 @@ WORKSTREAM A: Market Intelligence          WORKSTREAM B: User Intelligence
 | Agent | Role in Phase | Primary Output |
 |-------|--------------|----------------|
 | **Studio Producer** | Strategic portfolio alignment | Strategic Portfolio Plan |
-| **Senior Project Manager** | Spec-to-task conversion | Comprehensive Task List |
+| **Laravel/Livewire Project Manager** | Spec-to-task conversion | Comprehensive Task List |
 | **Sprint Prioritizer** | Feature prioritization | Prioritized Backlog (RICE scored) |
 | **UX Architect** | Technical architecture + UX foundation | Architecture Spec + CSS Design System |
 | **Brand Guardian** | Brand identity system | Brand Foundation Document |
 | **Backend Architect** | System architecture | System Architecture Specification |
 | **AI Engineer** | AI/ML architecture (if applicable) | ML System Design |
-| **Finance Tracker** | Budget and resource planning | Financial Plan with ROI projections |
+| **FP&A Analyst** | Budget and resource planning | Financial Plan with ROI projections |
 
 ### 4.2 Execution Sequence
 
@@ -201,13 +207,13 @@ WORKSTREAM A: Market Intelligence          WORKSTREAM B: User Intelligence
 STEP 1: Strategic Framing (Parallel)
 ├── Studio Producer → Strategic Portfolio Plan (vision, objectives, ROI targets)
 ├── Brand Guardian → Brand Foundation (purpose, values, visual identity system)
-└── Finance Tracker → Budget Framework (resource allocation, cost projections)
+└── FP&A Analyst → Budget Framework (resource allocation, cost projections)
 
 STEP 2: Technical Architecture (Parallel, after Step 1)
 ├── UX Architect → CSS Design System + Layout Framework + UX Structure
 ├── Backend Architect → System Architecture (services, databases, APIs)
 ├── AI Engineer → ML Architecture (models, pipelines, inference strategy)
-└── Senior Project Manager → Task List (spec → tasks, exact requirements)
+└── Laravel/Livewire Project Manager → Task List (spec → tasks, exact requirements)
 
 STEP 3: Prioritization (Sequential, after Step 2)
 └── Sprint Prioritizer → RICE-scored backlog with sprint assignments
@@ -225,7 +231,7 @@ STEP 3: Prioritization (Sequential, after Step 2)
 | Architecture covers all requirements | 100% spec coverage | Senior PM task list cross-referenced |
 | Brand system complete | Logo, colors, typography, voice defined | Brand Guardian deliverable |
 | Technical feasibility validated | All components have implementation path | Backend Architect + UX Architect specs |
-| Budget approved | Within organizational constraints | Finance Tracker plan |
+| Budget approved | Within organizational constraints | FP&A Analyst plan |
 | Sprint plan realistic | Velocity-based estimation | Sprint Prioritizer backlog |
 
 **Output**: Approved Architecture Package → Phase 2 activation
@@ -323,13 +329,13 @@ This is the heart of NEXUS. The Agents Orchestrator manages a **task-by-task qua
 | Mobile | Mobile App Builder | Evidence Collector | UX Researcher |
 | AI/ML Feature | AI Engineer | Test Results Analyzer | Analytics Reporter |
 | Infrastructure | DevOps Automator | Performance Benchmarker | Infrastructure Maintainer |
-| Premium Polish | Senior Developer | Evidence Collector | Visual Storyteller |
+| Premium Polish | Laravel/Livewire Specialist | Evidence Collector | Visual Storyteller |
 | Rapid Prototype | Rapid Prototyper | Evidence Collector | Experiment Tracker |
 | Spatial/XR | XR Immersive Developer | Evidence Collector | XR Interface Architect |
 | visionOS | visionOS Spatial Engineer | Evidence Collector | macOS Spatial/Metal Engineer |
 | Cockpit UI | XR Cockpit Interaction Specialist | Evidence Collector | XR Interface Architect |
 | CLI/Terminal | Terminal Integration Specialist | API Tester | LSP/Index Engineer |
-| Code Intelligence | LSP/Index Engineer | Test Results Analyzer | Senior Developer |
+| Code Intelligence | LSP/Index Engineer | Test Results Analyzer | Laravel/Livewire Specialist |
 
 ### 6.3 Parallel Build Tracks
 
@@ -516,7 +522,7 @@ T+1 TO T+7: Post-Launch
 | **Support Responder** | Continuous | Customer support and issue resolution |
 | **Analytics Reporter** | Weekly | KPI tracking, dashboards, insights |
 | **Feedback Synthesizer** | Bi-weekly | User feedback analysis and synthesis |
-| **Finance Tracker** | Monthly | Financial performance, budget tracking |
+| **FP&A Analyst** | Monthly | Financial performance, budget tracking |
 | **Legal Compliance Checker** | Monthly | Regulatory monitoring and compliance |
 | **Trend Researcher** | Monthly | Market intelligence and competitive analysis |
 | **Executive Summary Generator** | Monthly | C-suite reporting |
@@ -542,7 +548,7 @@ T+1 TO T+7: Post-Launch
 │       └────────────────────────────────────────────┘      │
 │                                                           │
 │  Monthly: Executive Summary Generator → C-suite report    │
-│  Monthly: Finance Tracker → Financial performance         │
+│  Monthly: FP&A Analyst → Financial performance            │
 │  Monthly: Legal Compliance Checker → Regulatory update    │
 │  Monthly: Trend Researcher → Market intelligence          │
 │  Quarterly: Workflow Optimizer → Process improvements     │
@@ -579,7 +585,7 @@ These are the highest-traffic handoff relationships in NEXUS:
 
 | From | To | Artifact | Frequency |
 |------|----|----------|-----------|
-| Senior Project Manager | All Developers | Task List | Per sprint |
+| Laravel/Livewire Project Manager | All Developers | Task List | Per sprint |
 | UX Architect | Frontend Developer | CSS Design System + Layout Spec | Per project |
 | Backend Architect | Frontend Developer | API Specification | Per feature |
 | Frontend Developer | Evidence Collector | Implemented Feature | Per task |
@@ -732,12 +738,12 @@ IF gate FAILS:
 
 | Risk Category | Primary Owner | Mitigation Agent | Escalation Path |
 |---------------|--------------|-------------------|-----------------|
-| Technical Debt | Backend Architect | Workflow Optimizer | Senior Developer |
+| Technical Debt | Backend Architect | Workflow Optimizer | Laravel/Livewire Specialist |
 | Security Vulnerability | Legal Compliance Checker | Infrastructure Maintainer | DevOps Automator |
 | Performance Degradation | Performance Benchmarker | Infrastructure Maintainer | Backend Architect |
 | Brand Inconsistency | Brand Guardian | UI Designer | Studio Producer |
-| Scope Creep | Senior Project Manager | Sprint Prioritizer | Project Shepherd |
-| Budget Overrun | Finance Tracker | Studio Operations | Studio Producer |
+| Scope Creep | Laravel/Livewire Project Manager | Sprint Prioritizer | Project Shepherd |
+| Budget Overrun | FP&A Analyst | Studio Operations | Studio Producer |
 | Regulatory Non-Compliance | Legal Compliance Checker | Support Responder | Studio Producer |
 | Market Shift | Trend Researcher | Growth Hacker | Studio Producer |
 | Team Bottleneck | Project Shepherd | Studio Operations | Studio Producer |
@@ -784,7 +790,7 @@ IF gate FAILS:
 | User acquisition (MoM) | 20%+ growth | Growth Hacker |
 | Activation rate | 60%+ in first week | Analytics Reporter |
 | Retention (Day 7 / Day 30) | 40% / 20% | Analytics Reporter |
-| LTV:CAC ratio | > 3:1 | Finance Tracker |
+| LTV:CAC ratio | > 3:1 | FP&A Analyst |
 | NPS score | > 50 | Feedback Synthesizer |
 | Portfolio ROI | > 25% | Studio Producer |
 
@@ -828,7 +834,7 @@ IF gate FAILS:
  Begin at Phase 1 with architecture and sprint planning."
 
 # Recommended agent subset (15-25):
-# PM: Senior Project Manager, Sprint Prioritizer, Project Shepherd
+# PM: Laravel/Livewire Project Manager, Sprint Prioritizer, Project Shepherd
 # Design: UX Architect, UI Designer, Brand Guardian
 # Engineering: Frontend Developer, Backend Architect, DevOps Automator
 # + AI Engineer or Mobile App Builder (if applicable)
@@ -943,7 +949,7 @@ Use the NEXUS QA Feedback Loop Protocol format
 | AI Engineer | ML models, LLMs, RAG systems, data pipelines | Any AI/ML feature |
 | DevOps Automator | CI/CD, IaC, Kubernetes, monitoring | Infrastructure or deployment work |
 | Rapid Prototyper | Next.js, Supabase, 3-day MVPs | Quick validation or proof-of-concept |
-| Senior Developer | Laravel/Livewire, premium implementations | Complex or premium feature work |
+| Laravel/Livewire Specialist | Laravel/Livewire, premium implementations | Complex or premium feature work |
 
 ### Design Division — "Make It Beautiful"
 | Agent | Superpower | Activation Trigger |
@@ -982,7 +988,7 @@ Use the NEXUS QA Feedback Loop Protocol format
 | Project Shepherd | Cross-functional coordination, stakeholder alignment | Complex project coordination |
 | Studio Operations | Day-to-day efficiency, process optimization | Operational support |
 | Experiment Tracker | A/B testing, hypothesis validation | Experiment management |
-| Senior Project Manager | Spec-to-task conversion, realistic scoping | Task planning or scope management |
+| Laravel/Livewire Project Manager | Spec-to-task conversion, realistic scoping | Task planning or scope management |
 
 ### Testing Division — "Prove It Works"
 | Agent | Superpower | Activation Trigger |
@@ -1000,7 +1006,7 @@ Use the NEXUS QA Feedback Loop Protocol format
 |-------|-----------|-------------------|
 | Support Responder | Customer service, issue resolution | Customer support needs |
 | Analytics Reporter | Data analysis, dashboards, KPI tracking | Business intelligence or reporting |
-| Finance Tracker | Financial planning, budget management | Financial analysis or budgeting |
+| FP&A Analyst | Financial planning, budget management | Financial analysis or budgeting |
 | Infrastructure Maintainer | System reliability, performance optimization | Infrastructure management |
 | Legal Compliance Checker | Compliance, regulations, legal review | Legal or compliance needs |
 | Executive Summary Generator | C-suite communication, SCQA framework | Executive reporting |
@@ -1022,7 +1028,7 @@ Use the NEXUS QA Feedback Loop Protocol format
 | Analytics Reporter | Business intelligence, deep analytics | Deep data analysis |
 | LSP/Index Engineer | Language Server Protocol, code intelligence | Code intelligence systems |
 | Sales Data Extraction Agent | Excel monitoring, sales metric extraction | Sales data ingestion |
-| Data Consolidation Agent | Sales data aggregation, dashboard reports | Territory and rep reporting |
+| Pipeline Analyst | Sales data aggregation, dashboard reports | Territory and rep reporting |
 | Report Distribution Agent | Automated report delivery | Scheduled report distribution |
 
 ---
@@ -1103,7 +1109,7 @@ Use the NEXUS QA Feedback Loop Protocol format
 
 <div align="center">
 
-**🌐 NEXUS: 9 Divisions. 7 Phases. One Unified Strategy. 🌐**
+**🌐 NEXUS: 16 Categories. 7 Phases. One Unified Strategy. 🌐**
 
 *From discovery to sustained operations — every agent knows their role, their timing, and their handoff.*
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-merge_agents_md.py -- splice pack-owned sections from the pack's AGENTS.md
-into a project's AGENTS.md without touching project-owned content.
+merge_agents_md.py -- splice pack-owned sections from the pack's AGENTS
+template (`AGENTS.template.md`; legacy packs: `AGENTS.md`) into a
+project's AGENTS.md without touching project-owned content.
 
-The pack's AGENTS.md has marker pairs:
+The pack template has marker pairs:
 
     <!-- pack-owned:begin id="precedence" -->
     ## Precedence
@@ -33,14 +34,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -54,6 +87,47 @@ from pathlib import Path
 
 BEGIN_RE = re.compile(r'^<!--\s*pack-owned:begin\s+id="([a-z0-9-]+)"\s*-->\s*$')
 END_RE = re.compile(r'^<!--\s*pack-owned:end\s*-->\s*$')
+
+# Literal `harmonist/` path prefix as written in the pack templates (the
+# default clone dir name). The lookbehind keeps URL segments like
+# `github.com/owner/harmonist/` and words like `x-harmonist/` intact.
+_PACK_DIR_TOKEN_RE = re.compile(r"(?<![\w./-])harmonist/")
+
+
+def pack_template_path(pack_root: Path) -> Path:
+    """The pack's AGENTS template. Canonical name: `AGENTS.template.md`
+    (so a pack checkout never shadows a host project's own AGENTS.md);
+    falls back to the legacy `AGENTS.md` for packs predating the rename."""
+    tpl = pack_root / "AGENTS.template.md"
+    return tpl if tpl.exists() else pack_root / "AGENTS.md"
+
+
+def pack_dir_relname(pack_root: Path, project_root: Path) -> str:
+    """Posix relpath of the pack dir as seen from the project root
+    ('.' when the pack IS the project root, '../<dir>' for siblings).
+    Used to rewrite the literal `harmonist/` prefix in pack-owned content,
+    since users may vendor the pack under any directory name."""
+    import os
+    try:
+        rel = os.path.relpath(str(pack_root.resolve()), str(project_root.resolve()))
+    except ValueError:
+        # E.g. different drives on Windows -- fall back to an absolute path.
+        return pack_root.resolve().as_posix()
+    return Path(rel).as_posix()
+
+
+def substitute_pack_dir(text: str, pack_dir: "str | None") -> str:
+    """Rewrite the literal `harmonist/` path prefix to the actual pack
+    directory (posix relpath from the project root). No-op when the pack
+    really is named `harmonist`; a pack merged into the project root
+    ('.' / '') strips the prefix entirely."""
+    if not pack_dir or pack_dir == "harmonist":
+        return text
+    replacement = "" if pack_dir == "." else pack_dir.rstrip("/") + "/"
+    # Callable replacement: a pack dir containing re.sub escapes (`\1`,
+    # `\g<0>`) must be inserted verbatim, not interpreted as backrefs
+    # (which would corrupt the merge or silently re-insert `harmonist/`).
+    return _PACK_DIR_TOKEN_RE.sub(lambda _m: replacement, text)
 
 
 @dataclass
@@ -73,7 +147,9 @@ class ParsedFile:
 
 
 def parse(path: Path) -> ParsedFile:
-    text = path.read_text().splitlines()
+    # Explicit UTF-8 (strict): this content is rewritten and written back,
+    # so silent cp1252 mojibake on Windows would corrupt the USER'S AGENTS.md.
+    text = path.read_text(encoding="utf-8").splitlines()
     pf = ParsedFile(path=path, lines=text)
     i = 0
     while i < len(text):
@@ -118,10 +194,22 @@ class MergeReport:
     output: str = ""
 
 
-def merge(pack_file: Path, project_file: Path) -> MergeReport:
+def merge(pack_file: Path, project_file: Path,
+          pack_dir: "str | None" = None) -> MergeReport:
+    """Merge pack-owned blocks into the project file.
+
+    `pack_dir`: posix relpath of the pack dir from the project root (see
+    pack_dir_relname). When given, literal `harmonist/` path prefixes in
+    pack block content are rewritten before comparison/replacement, so
+    merges stay idempotent for packs vendored under a different name.
+    """
     pack = parse(pack_file)
     proj = parse(project_file)
     report = MergeReport(pack_path=pack_file, project_path=project_file)
+
+    if pack_dir:
+        for blk in pack.blocks.values():
+            blk.lines = [substitute_pack_dir(l, pack_dir) for l in blk.lines]
 
     if pack.errors or proj.errors:
         report.errors.extend(pack.errors)
@@ -206,7 +294,7 @@ def _render_diff(before: str, after: str, label_before: str, label_after: str) -
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--pack", type=Path, required=True,
-                    help="Pack root directory (contains AGENTS.md + VERSION).")
+                    help="Pack root directory (contains AGENTS.template.md + VERSION).")
     ap.add_argument("--project", type=Path, default=Path.cwd(),
                     help="Project root. Default: current directory.")
     ap.add_argument("--apply", action="store_true", help="Actually write the merged file.")
@@ -214,16 +302,17 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true", help="Machine-readable summary output.")
     args = ap.parse_args(argv)
 
-    pack_file = (args.pack / "AGENTS.md").resolve()
+    pack_file = pack_template_path(args.pack).resolve()
     proj_file = (args.project / "AGENTS.md").resolve()
     if not pack_file.exists():
-        print(f"merge_agents_md: pack AGENTS.md missing at {pack_file}", file=sys.stderr)
+        print(f"merge_agents_md: pack AGENTS template missing at {pack_file}", file=sys.stderr)
         return 2
     if not proj_file.exists():
         print(f"merge_agents_md: project AGENTS.md missing at {proj_file}", file=sys.stderr)
         return 2
 
-    report = merge(pack_file, proj_file)
+    report = merge(pack_file, proj_file,
+                   pack_dir=pack_dir_relname(args.pack, args.project))
 
     if report.errors and not args.json:
         for e in report.errors:
@@ -244,7 +333,7 @@ def main(argv: list[str]) -> int:
         return 2 if report.errors else 0
 
     # Human-readable.
-    before_text = proj_file.read_text()
+    before_text = proj_file.read_text(encoding="utf-8")
     changed = report.output != before_text
     print(f"  pack:    {pack_file}")
     print(f"  project: {proj_file}")
@@ -258,7 +347,7 @@ def main(argv: list[str]) -> int:
                            str(proj_file), str(proj_file) + " (merged)"))
     if args.apply:
         if changed:
-            proj_file.write_text(report.output)
+            proj_file.write_text(report.output, encoding="utf-8")
             print(f"\n  applied -- {proj_file} updated")
             return 1
         else:

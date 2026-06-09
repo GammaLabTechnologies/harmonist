@@ -22,12 +22,12 @@
       "testing": 8
     },
     "by_protocol": {
-      "persona": 186,
-      "strict": 7
+      "persona": 185,
+      "strict": 8
     },
     "by_domain": {
       "academic": 5,
-      "all": 140,
+      "all": 135,
       "blockchain": 2,
       "china-market": 17,
       "education": 1,
@@ -36,9 +36,10 @@
       "gov-tech": 1,
       "healthcare": 1,
       "korean-market": 1,
+      "pentest": 5,
       "xr": 6
     },
-    "with_disambiguation": 122,
+    "with_disambiguation": 68,
     "with_version": 193,
     "with_updated_at": 193,
     "deprecated": 0
@@ -3454,8 +3455,8 @@
       "name": "Agents Orchestrator",
       "description": "Composes multi-agent plans and drives end-to-end delivery. Decomposes work, routes each piece to the right specialist via the pack index, enforces quality gates, preserves context across handoffs, and escalates when the same step fails repeatedly.",
       "category": "orchestration",
-      "protocol": "persona",
-      "readonly": false,
+      "protocol": "strict",
+      "readonly": true,
       "is_background": false,
       "model": "claude-opus-4-8",
       "tags": [
@@ -4927,7 +4928,7 @@
         "vulnerability-assessment"
       ],
       "domains": [
-        "all"
+        "pentest"
       ],
       "distinguishes_from": [
         "blockchain-security-auditor",
@@ -4956,7 +4957,7 @@
         "vulnerability-assessment"
       ],
       "domains": [
-        "all"
+        "pentest"
       ],
       "distinguishes_from": [
         "engineering-technical-writer",
@@ -4985,7 +4986,7 @@
         "threat-modeling"
       ],
       "domains": [
-        "all"
+        "pentest"
       ],
       "distinguishes_from": [
         "engineering-threat-detection-engineer",
@@ -5014,7 +5015,7 @@
         "security"
       ],
       "domains": [
-        "all"
+        "pentest"
       ],
       "distinguishes_from": [
         "engineering-incident-response-commander",
@@ -5073,7 +5074,7 @@
         "web"
       ],
       "domains": [
-        "all"
+        "pentest"
       ],
       "distinguishes_from": [
         "engineering-security-engineer",
@@ -7843,13 +7844,8 @@
       "sales-outbound-strategist",
       "sales-pipeline-analyst",
       "sales-proposal-strategist",
-      "security-exploit-developer",
-      "security-pentest-report-writer",
-      "security-recon-mapper",
-      "security-red-team-operator",
       "security-reviewer",
       "security-vulnerability-triage",
-      "security-web-app-pentester",
       "specialized-civil-engineer",
       "specialized-cultural-intelligence-strategist",
       "specialized-developer-advocate",
@@ -7934,6 +7930,13 @@
     ],
     "korean-market": [
       "specialized-korean-business-navigator"
+    ],
+    "pentest": [
+      "security-exploit-developer",
+      "security-pentest-report-writer",
+      "security-recon-mapper",
+      "security-red-team-operator",
+      "security-web-app-pentester"
     ],
     "xr": [
       "macos-spatial-metal-engineer",

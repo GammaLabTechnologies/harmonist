@@ -42,14 +42,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -188,6 +220,12 @@ def build() -> dict:
     for entry in disambiguation.values():
         entry["peers"] = sorted(set(entry["peers"]))
 
+    # Headline count = agents that AUTHORED a non-empty disambiguation
+    # note. The disambiguation map itself additionally carries reverse-edge
+    # stubs (peers-only entries added above for symmetric lookups); those
+    # must not inflate the count.
+    with_disambiguation = sum(1 for a in agents if a.get("disambiguation"))
+
     with_version = sum(1 for a in agents if a.get("version"))
     with_updated_at = sum(1 for a in agents if a.get("updated_at"))
     deprecated_count = sum(
@@ -204,7 +242,7 @@ def build() -> dict:
             "by_category": {k: len(v) for k, v in sorted(by_category.items())},
             "by_protocol": dict(sorted(by_protocol.items())),
             "by_domain": {k: len(v) for k, v in sorted(by_domain.items())},
-            "with_disambiguation": len(disambiguation),
+            "with_disambiguation": with_disambiguation,
             "with_version": with_version,
             "with_updated_at": with_updated_at,
             "deprecated": deprecated_count,

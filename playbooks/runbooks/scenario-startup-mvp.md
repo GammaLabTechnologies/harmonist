@@ -1,5 +1,11 @@
 # 🚀 Runbook: Startup MVP Build
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Mode**: NEXUS-Sprint | **Duration**: 4-6 weeks | **Agents**: 18-22
 
 ---
@@ -14,7 +20,7 @@ You're building a startup MVP — a new product that needs to validate product-m
 | Agent | Role |
 |-------|------|
 | Agents Orchestrator | Pipeline controller |
-| Senior Project Manager | Spec-to-task conversion |
+| Laravel/Livewire Project Manager | Spec-to-task conversion |
 | Sprint Prioritizer | Backlog management |
 | UX Architect | Technical foundation |
 | Frontend Developer | UI implementation |
@@ -48,7 +54,7 @@ You're building a startup MVP — a new product that needs to validate product-m
 Day 1-2: Compressed Discovery
 ├── Trend Researcher → Quick competitive scan (1 day, not full report)
 ├── UX Architect → Wireframe key user flows
-└── Senior Project Manager → Convert spec to task list
+└── Laravel/Livewire Project Manager → Convert spec to task list
 
 Day 3-4: Architecture
 ├── UX Architect → CSS design system + component architecture
@@ -128,7 +134,7 @@ Week 6: Optimize
 | Decision Point | When | Who Decides |
 |---------------|------|-------------|
 | Go/No-Go on concept | End of Day 2 | Studio Producer |
-| Architecture approval | End of Day 4 | Senior Project Manager |
+| Architecture approval | End of Day 4 | Laravel/Livewire Project Manager |
 | Feature scope for MVP | Sprint planning | Sprint Prioritizer |
 | Production readiness | Week 4 Day 5 | Reality Checker |
 | Launch timing | After Reality Checker READY | Studio Producer |

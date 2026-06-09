@@ -155,7 +155,12 @@ assert "broken hand-edit caught" "1" "$rc"
 
 # ---------------------------------------------------------------------------
 
-printf '\n=== 7: non-monotonic "at" detected ===\n'
+printf '\n=== 7: non-monotonic "at" is an advisory notice, NOT a failure ===\n'
+# A system clock correction (NTP step, VM resume) can write one entry
+# "before" its predecessor. Memory is append-only, so a hard error here
+# would poison the file forever and block the stop gate on every future
+# task. The validator must surface a NOTE but still pass -- even under
+# --strict.
 reset
 cat >> "$TMP/patterns.md" <<'EOF'
 
@@ -190,7 +195,15 @@ Long enough body for the schema validator to accept here.
 <!-- memory-entry:end -->
 EOF
 if python3 "$TMP/validate.py" --path "$TMP" >/dev/null 2>&1; then rc=0; else rc=1; fi
-assert "backwards-in-time entries rejected" "1" "$rc"
+assert "backwards-in-time entries do not fail validation" "0" "$rc"
+if python3 "$TMP/validate.py" --path "$TMP" --strict >/dev/null 2>&1; then rc=0; else rc=1; fi
+assert "backwards-in-time entries do not fail even under --strict" "0" "$rc"
+note_out="$(python3 "$TMP/validate.py" --path "$TMP" 2>&1 || true)"
+if printf '%s' "$note_out" | /usr/bin/grep -q "earlier than previous entry"; then
+  printf "  ok    validator surfaces the clock-skew notice\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  no clock-skew notice emitted\n"; fail=$((fail + 1)); fail_list+=("monotonic-notice")
+fi
 
 # ---------------------------------------------------------------------------
 
@@ -303,15 +316,76 @@ else
   printf "  FAIL  rotate did not run\n"; fail=$((fail + 1))
 fi
 
-# Archive file created and live file kept at least the requested count.
-archive_count="$(ls "$TMP"/decisions-archive-*.md 2>/dev/null | wc -l | tr -d ' ')"
-[[ "$archive_count" -ge "1" ]] && { printf "  ok    archive file created\n"; pass=$((pass + 1)); } \
-  || { printf "  FAIL  no archive file\n"; fail=$((fail + 1)); }
+# Archive file created (dotted naming so discovery keeps seeing it) and
+# live file kept at least the requested count.
+archive_count="$(ls "$TMP"/decisions.archive-*.md 2>/dev/null | wc -l | tr -d ' ' || true)"
+[[ "$archive_count" -ge "1" ]] && { printf "  ok    archive file created (decisions.archive-*.md)\n"; pass=$((pass + 1)); } \
+  || { printf "  FAIL  no decisions.archive-*.md file\n"; fail=$((fail + 1)); }
 
 # Validate the archive.
 python3 "$TMP/validate.py" --path "$TMP" --strict >/tmp/va.out 2>&1 && \
   { printf "  ok    archive + live pass validation\n"; pass=$((pass + 1)); } \
   || { printf "  FAIL  validation after rotate: "; cat /tmp/va.out; fail=$((fail + 1)); }
+
+# Rotated ids must NOT be re-issuable: archives stay inside the global
+# id-uniqueness scan, so re-appending under an archived correlation id
+# must pick the deduped -2 suffix instead of duplicating the archived id.
+cat > "$HOOKS_STATE" <<'JSON'
+{
+  "session_id": "9999999999",
+  "task_seq": 1,
+  "active_correlation_id": "9999999999-1"
+}
+JSON
+id_re="$(python3 "$TMP/memory.py" append --file decisions --kind decision \
+  --status done --summary "id re-issue check after rotation" \
+  --body "The base id 9999999999-1-decision lives in the archive now; this append must dedupe.")"
+assert "archived id is not re-issued (dedupe suffix)" "9999999999-1-decision-2" "$id_re"
+
+# Legacy archives (decisions-archive-<date>.md from older pack versions)
+# are still discovered and validated -- including the global id check.
+cat > "$TMP/decisions-archive-2020-01-01.md" <<'EOF'
+# Decisions (legacy archive)
+
+<!-- memory-entry:start -->
+---
+id: legacy-archived-decision
+correlation_id: 1111111111-1
+at: 2020-01-01T00:00:00Z
+kind: decision
+status: done
+author: orchestrator
+summary: entry living in a legacy dash-named archive
+---
+
+Body long enough to satisfy the validator minimum for this entry.
+
+<!-- memory-entry:end -->
+EOF
+python3 "$TMP/validate.py" --path "$TMP" --strict >/tmp/va-legacy.out 2>&1 && \
+  { printf "  ok    legacy -archive- file validates (discovered, kind ok)\n"; pass=$((pass + 1)); } \
+  || { printf "  FAIL  legacy archive validation: "; cat /tmp/va-legacy.out; fail=$((fail + 1)); }
+# Duplicate an id across live + legacy archive -> must FAIL validation.
+cat >> "$TMP/decisions-archive-2020-01-01.md" <<'EOF'
+
+<!-- memory-entry:start -->
+---
+id: 9999999999-1-decision-2
+correlation_id: 1111111111-2
+at: 2020-01-02T00:00:00Z
+kind: decision
+status: done
+author: orchestrator
+summary: deliberately reuses a live id to prove archives are scanned
+---
+
+Body long enough to satisfy the validator minimum for this dupe.
+
+<!-- memory-entry:end -->
+EOF
+if python3 "$TMP/validate.py" --path "$TMP" >/dev/null 2>&1; then rc=0; else rc=1; fi
+assert "duplicate id across live file and archive is rejected" "1" "$rc"
+rm -f "$TMP/decisions-archive-2020-01-01.md"
 
 # Rotate refuses to empty the live file.
 set +e
@@ -482,6 +556,33 @@ python3 "$TMP/memory.py" append \
 rc=$?
 set -e
 assert "placeholder-only entry still appends" "0" "$rc"
+
+printf "\n=== 14: non-ASCII (UTF-8) body round-trips through append/validate/latest ===\n"
+# Every read/write in memory.py + validate.py pins encoding=utf-8: on
+# Windows the locale default is cp1252 and a Cyrillic body would crash the
+# append and wedge the stop gate. Append -> validate -> read back.
+reset
+cd "$TMP"
+set +e
+utf8_id="$(python3 "$TMP/memory.py" append \
+  --file session-handoff --kind state --status done \
+  --summary "non-ASCII round-trip: кириллица в summary" \
+  --body "## Изменения
+- Себастьян добавил обработку вебхуков (UTF-8 проверка, ёЁъЪ)
+
+## Open issues
+- нет" 2>/dev/null)"
+rc=$?
+set -e
+assert "append with Cyrillic body succeeds" "0" "$rc"
+if python3 "$TMP/validate.py" --path "$TMP" --strict >/dev/null 2>&1; then rc=0; else rc=1; fi
+assert "file with Cyrillic entry still validates (--strict)" "0" "$rc"
+latest_out="$(python3 "$TMP/memory.py" latest --file session-handoff --kind state --n 1 2>/dev/null || true)"
+if printf '%s' "$latest_out" | /usr/bin/grep -q "вебхуков"; then
+  printf "  ok    latest returns the Cyrillic body intact\n"; pass=$((pass + 1))
+else
+  printf "  FAIL  Cyrillic body lost on read-back\n"; fail=$((fail + 1)); fail_list+=("utf8-roundtrip")
+fi
 
 printf "\n=== summary ===\n  passed: %s\n  failed: %s\n" "$pass" "$fail"
 if (( fail > 0 )); then

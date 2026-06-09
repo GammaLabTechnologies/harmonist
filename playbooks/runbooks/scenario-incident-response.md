@@ -1,5 +1,11 @@
 # 🚨 Runbook: Incident Response
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Mode**: NEXUS-Micro | **Duration**: Minutes to hours | **Agents**: 3-8
 
 ---
@@ -214,4 +220,4 @@ NEXT UPDATE: [Timestamp]
 | P1 not resolved in 2 hours | Project Shepherd | Resource reallocation |
 | Data breach suspected | Legal Compliance Checker | Regulatory notification assessment |
 | User data affected | Legal Compliance Checker + Executive Summary Generator | GDPR/CCPA notification |
-| Revenue impact > $X | Finance Tracker + Studio Producer | Business impact assessment |
+| Revenue impact > $X | FP&A Analyst + Studio Producer | Business impact assessment |

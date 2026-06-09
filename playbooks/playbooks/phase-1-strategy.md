@@ -1,5 +1,11 @@
 # 🏗️ Phase 1 Playbook — Strategy & Architecture
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Duration**: 5-10 days | **Agents**: 8 | **Gate Keepers**: Studio Producer + Reality Checker
 
 ---
@@ -51,9 +57,9 @@ Format: Brand Identity System Document
 Timeline: 3 days
 ```
 
-#### 💰 Finance Tracker — Budget and Resource Planning
+#### 💰 FP&A Analyst — Budget and Resource Planning
 ```
-Activate Finance Tracker for financial planning on [PROJECT].
+Activate FP&A Analyst for financial planning on [PROJECT].
 
 Input: Studio Producer strategic plan + Phase 0 Tech Stack Assessment
 Deliverables required:
@@ -132,9 +138,9 @@ Format: ML System Design Document
 Timeline: 3 days
 ```
 
-#### 👔 Senior Project Manager — Spec-to-Task Conversion
+#### 👔 Laravel/Livewire Project Manager — Spec-to-Task Conversion
 ```
-Activate Senior Project Manager for task list creation on [PROJECT].
+Activate Laravel/Livewire Project Manager for task list creation on [PROJECT].
 
 Input: ALL Phase 0 documents + Architecture specs (as available)
 Deliverables required:
@@ -163,10 +169,10 @@ Timeline: 3 days
 Activate Sprint Prioritizer for backlog prioritization on [PROJECT].
 
 Input:
-- Senior Project Manager → Task List
+- Laravel/Livewire Project Manager → Task List
 - Backend Architect → System Architecture
 - UX Architect → UX Architecture
-- Finance Tracker → Budget Framework
+- FP&A Analyst → Budget Framework
 - Studio Producer → Strategic Plan
 
 Deliverables required:
@@ -188,7 +194,7 @@ Timeline: 2 days
 | 1 | Architecture covers 100% of spec requirements | Senior PM task list cross-referenced with architecture | ☐ |
 | 2 | Brand system complete (logo, colors, typography, voice) | Brand Guardian deliverable | ☐ |
 | 3 | All technical components have implementation path | Backend Architect + UX Architect specs | ☐ |
-| 4 | Budget approved and within constraints | Finance Tracker plan | ☐ |
+| 4 | Budget approved and within constraints | FP&A Analyst plan | ☐ |
 | 5 | Sprint plan is velocity-based and realistic | Sprint Prioritizer backlog | ☐ |
 | 6 | Security architecture defined | Backend Architect security spec | ☐ |
 | 7 | Compliance requirements integrated into architecture | Legal requirements mapped to technical decisions | ☐ |
@@ -209,11 +215,11 @@ Timeline: 2 days
 ### Architecture Package:
 1. Strategic Portfolio Plan (Studio Producer)
 2. Brand Identity System (Brand Guardian)
-3. Financial Plan (Finance Tracker)
+3. Financial Plan (FP&A Analyst)
 4. CSS Design System + UX Architecture (UX Architect)
 5. System Architecture Specification (Backend Architect)
 6. ML System Design (AI Engineer — if applicable)
-7. Comprehensive Task List (Senior Project Manager)
+7. Comprehensive Task List (Laravel/Livewire Project Manager)
 8. Prioritized Sprint Plan (Sprint Prioritizer)
 
 ### For DevOps Automator:

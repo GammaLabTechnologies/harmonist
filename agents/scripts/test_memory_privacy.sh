@@ -7,6 +7,8 @@
 set -euo pipefail
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 TMP="$(mktemp -d)"
 trap "rm -rf $TMP" EXIT
 
@@ -89,7 +91,7 @@ unset AGENT_PACK_HOOKS_STATE
 printf "\n=== 2: upgrade.py hardens .gitignore ===\n"
 proj="$TMP/proj2"
 mkdir -p "$proj"
-cp "$PACK/AGENTS.md" "$proj/AGENTS.md"
+cp "$PACK_TPL" "$proj/AGENTS.md"
 # apply once
 set +e
 python3 "$PACK/agents/scripts/upgrade.py" --project "$proj" --pack "$PACK" --apply >/dev/null
@@ -111,7 +113,7 @@ after="$(cat "$proj/.gitignore")"
 # Pre-existing .gitignore survives (we append, not replace).
 proj3="$TMP/proj3"
 mkdir -p "$proj3"
-cp "$PACK/AGENTS.md" "$proj3/AGENTS.md"
+cp "$PACK_TPL" "$proj3/AGENTS.md"
 cat > "$proj3/.gitignore" <<'EOF'
 node_modules/
 .env

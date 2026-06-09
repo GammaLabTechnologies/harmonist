@@ -13,6 +13,8 @@ set -euo pipefail
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/detect_regression_commands.py"
 UPGRADE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/upgrade.py"
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 TMP="$(mktemp -d)"
 trap "rm -rf $TMP" EXIT
 
@@ -121,7 +123,7 @@ assert_contains "renderer says 'No manifest'" "No manifest detected" "$rendered"
 
 printf "\n=== 6: upgrade.py seeds bg-regression-runner only when placeholder text present ===\n"
 proj="$TMP/fullproj"; mkdir -p "$proj"
-cp "$PACK/AGENTS.md" "$proj/AGENTS.md"
+cp "$PACK_TPL" "$proj/AGENTS.md"
 cat > "$proj/pyproject.toml" <<'EOF'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -144,7 +146,7 @@ grep -qF "# MY CUSTOM EDIT" "$bg" && ok "customised bg stays untouched on re-upg
 
 printf "\n=== 7: upgrade on an empty project seeds placeholder block, not silent ===\n"
 proj2="$TMP/emptyproj"; mkdir -p "$proj2"
-cp "$PACK/AGENTS.md" "$proj2/AGENTS.md"
+cp "$PACK_TPL" "$proj2/AGENTS.md"
 python3 "$UPGRADE" --project "$proj2" --pack "$PACK" --apply >/dev/null || true
 bg2="$proj2/.cursor/agents/bg-regression-runner.md"
 [[ -f "$bg2" ]] && ok "bg file created even with no manifests" || ko "bg file missing for empty project"

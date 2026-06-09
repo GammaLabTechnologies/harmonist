@@ -86,9 +86,11 @@ PY
 # ---------------------------------------------------------------------------
 
 printf "\n=== 4: guard aborts on simulated Python 3.8 ===\n"
-simulation_out="$(python3 - 2>&1 <<'PY'
-import re, sys
-src = open("agents/scripts/build_index.py").read()
+# $PACK is passed via env (the heredoc is quoted): the victim file must be
+# anchored to the pack root, not to whatever CWD the suite was started from.
+simulation_out="$(PACK="$PACK" python3 - 2>&1 <<'PY'
+import os, re, sys
+src = open(os.path.join(os.environ["PACK"], "agents/scripts/build_index.py")).read()
 m = re.search(r"# === PY-GUARD:BEGIN ===(.*?)# === PY-GUARD:END ===", src, re.DOTALL)
 body = m.group(1)
 ns = {}

@@ -8,7 +8,7 @@ readonly: false
 is_background: false
 model: claude-opus-4-8
 tags: [reconnaissance, penetration-testing, security, threat-modeling]
-domains: [all]
+domains: [pentest]
 distinguishes_from: [repo-scout, security-web-app-pentester, engineering-threat-detection-engineer]
 disambiguation: Maps the attack surface (assets, endpoints, services, stack) for an authorized engagement. For codebase file/symbol mapping use repo-scout; for actually testing web findings use security-web-app-pentester.
 version: 1.0.0

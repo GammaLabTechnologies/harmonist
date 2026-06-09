@@ -36,16 +36,19 @@ TELEMETRY_FILE="$TELEMETRY_DIR/agent-usage.json"
 mkdir -p "$STATE_DIR"
 
 # Slurp stdin once; scripts then call json_get to query it.
+# Deliberately NOT exported: the payload can contain the full prompt text,
+# and a global export would leak it into the environment of EVERY child
+# process (memory.py, project_context.py, repomap, ...). Helpers that need
+# it receive it as a command-scoped env var instead.
 read_stdin() {
   STDIN_JSON="$(cat)"
-  export STDIN_JSON
 }
 
 # json_get <dotted.path> — print scalar, or JSON-encoded sub-tree, or nothing.
 # Safe for any input: the payload arrives via env var, the path via argv.
 json_get() {
   local path="${1:-}"
-  python3 - "$path" <<'PY' 2>/dev/null || true
+  STDIN_JSON="${STDIN_JSON:-}" python3 - "$path" <<'PY' 2>/dev/null || true
 import json, os, sys
 path = sys.argv[1]
 raw = os.environ.get("STDIN_JSON", "")
@@ -93,7 +96,7 @@ state = {
     "protocol_skipped": False,
 }
 path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text(json.dumps(state, indent=2))
+path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 PY
 }
 
@@ -130,9 +133,15 @@ STATE["task_seq"] = int(STATE.get("task_seq", 0)) + 1
 sid = STATE["session_id"]
 tseq = STATE["task_seq"]
 STATE["active_correlation_id"] = str(sid) + "-" + str(tseq)
-# Clear per-task buckets so the next task starts clean.
+# Clear per-task buckets so the next task starts clean. OPEN subagent
+# calls survive the bump (mirrors hook_runner._bump_task): a still-running
+# background readonly reviewer must keep its record or its slug never
+# leaves active_readonly_subagents.
 STATE["writes"] = []
-STATE["subagent_calls"] = []
+STATE["subagent_calls"] = [
+    c for c in STATE.get("subagent_calls", [])
+    if not (c.get("stopped_at") or c.get("completed"))
+]
 STATE["reviewers_seen"] = []
 STATE["memory_updates"] = []
 STATE["enforcement_attempts"] = 0
@@ -164,6 +173,7 @@ state_update() {
   local script="${1:-}"
   state_init
   CFG_JSON="$(read_cfg)" STATE_FILE_PATH="$STATE_FILE" SCRIPT="$script" \
+    STDIN_JSON="${STDIN_JSON:-}" \
     python3 - <<'PY'
 import json, os, tempfile, pathlib
 state_path = pathlib.Path(os.environ["STATE_FILE_PATH"])
@@ -179,7 +189,7 @@ try:
 except Exception:
     _lock = None
 try:
-    STATE = json.loads(state_path.read_text())
+    STATE = json.loads(state_path.read_text(encoding="utf-8"))
     CFG = json.loads(os.environ.get("CFG_JSON", "{}"))
     STDIN_JSON = os.environ.get("STDIN_JSON", "")
     try:
@@ -187,7 +197,8 @@ try:
     except Exception:
         INPUT = {}
     exec(os.environ.get("SCRIPT", ""), {"STATE": STATE, "CFG": CFG, "INPUT": INPUT, "json": json})
-    tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=state_path.parent)
+    tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=state_path.parent,
+                                      encoding="utf-8")
     json.dump(STATE, tmp, indent=2)
     tmp.close()
     os.replace(tmp.name, state_path)
@@ -288,8 +299,13 @@ DEFAULT = {
 cfg_path = pathlib.Path(os.environ.get("CFG_FILE_PATH", ""))
 if cfg_path.exists():
     try:
-        user = json.loads(cfg_path.read_text())
+        user = json.loads(cfg_path.read_text(encoding="utf-8"))
     except Exception:
+        # Silently falling back to defaults would make the operator believe
+        # their overrides are active. One line on stderr, then defaults.
+        import sys
+        print(f"hooks: WARNING: {cfg_path} is malformed JSON; using default config",
+              file=sys.stderr)
         user = {}
     DEFAULT.update(user)
 print(json.dumps(DEFAULT))
@@ -298,9 +314,26 @@ PY
 
 # --- Logging ---------------------------------------------------------------
 
+# Cap activity.log growth (mirrors hook_runner.py): past ~1MiB, keep only the
+# most recent half so a long-lived project never accumulates an unbounded log.
+LOG_MAX_BYTES=1048576
+
+_rotate_log_if_needed() {
+  [[ -f "$LOG_FILE" ]] || return 0
+  local size
+  size=$(wc -c <"$LOG_FILE" 2>/dev/null | tr -d ' ') || return 0
+  [[ -n "$size" && "$size" -gt "$LOG_MAX_BYTES" ]] || return 0
+  local tmp="$LOG_FILE.tmp.$$"
+  {
+    printf '[log rotated: older half discarded]\n'
+    tail -c $((LOG_MAX_BYTES / 2)) "$LOG_FILE" | sed '1d'
+  } >"$tmp" 2>/dev/null && mv "$tmp" "$LOG_FILE" || rm -f "$tmp"
+}
+
 log_event() {
   local msg="$*"
   mkdir -p "$(dirname "$LOG_FILE")"
+  _rotate_log_if_needed
   printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$msg" >>"$LOG_FILE"
 }
 

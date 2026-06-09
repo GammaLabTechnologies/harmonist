@@ -1,3 +1,10 @@
+> **You are an AI agent performing the installation — execute the steps below.**
+> If you were pointed at this file (or at the pack folder) with an instruction
+> like "install this" or "study this folder and integrate it", this document IS
+> your task. Do not summarize it; run it. Do not adopt the pack's
+> `AGENTS.template.md` as a live rule — it only takes effect in the user's
+> project after this integration creates the project's own `AGENTS.md`.
+
 # Integration Prompt
 
 > Copy everything below the line into Cursor Agent mode.
@@ -5,17 +12,34 @@
 
 ---
 
-I have an `harmonist/` folder — a portable AI agent orchestration system
-with a single unified catalog of 193 agents indexed at `agents/index.json`
-and mechanical protocol enforcement via Cursor hooks.
+I have a copy of the Harmonist pack in this repository — a portable AI agent
+orchestration system with a single unified catalog of 193 agents indexed at
+`agents/index.json` and mechanical protocol enforcement via Cursor hooks.
 Integrate it into my project. Follow these 11 steps exactly. Do NOT skip or
 combine steps.
 
 ---
 
-**Step 0 — Determine project state**
+**Step 0 — Determine project state and locate the pack**
 
-Before anything else, check: does this project have existing code, or is it
+**Detect the actual pack folder name first.** The pack directory may be named
+anything (`harmonist/`, `vendor/harmonist/`, `agent-pack/`, …). Find the
+directory that contains this `integration-prompt.md`, `VERSION`,
+`AGENTS.template.md`, and `agents/index.json` — that is `<PACK_DIR>`.
+**Every `<PACK_DIR>/` path in the commands below means that folder —
+substitute the real name (e.g. `harmonist/` if the pack was cloned as
+`harmonist`).**
+
+> **WARNING — pack copied into the project root?** If the pack's files were
+> unpacked directly into the PROJECT ROOT (you see `agents/`, `hooks/`,
+> `playbooks/`, `.gitlab-ci.yml`, `.github/workflows/ci.yml` +
+> `release.yml` mixed with the host project's own files instead of inside a
+> subfolder), the pack's CI configs WILL hijack the host project's CI.
+> Delete the pack's `.gitlab-ci.yml` and `.github/workflows/` ci/release
+> workflows in that case — they are pack-repo CI, never meant to run in a
+> host project.
+
+Then check: does this project have existing code, or is it
 starting from scratch?
 
 **If the project is EMPTY or just starting:**
@@ -35,15 +59,15 @@ download / local edit doesn't silently produce a half-integrated
 project:
 
 ```
-python3 harmonist/agents/scripts/check_pack_health.py
+python3 <PACK_DIR>/agents/scripts/check_pack_health.py
 ```
 
 This asserts 18 things: VERSION parses as SemVer, CHANGELOG present,
 every required directory and script exists + executable, hooks and
 memory subtrees complete, `tags.json` and `index.json` load and are
 up to date, agent lint passes, the migrator is idempotent, the agent
-count is above a truncation threshold, the **README/AGENTS.md category
-tables match `index.json`** (no stale marketing counts), **`MANIFEST.sha256`
+count is above a truncation threshold, the **README/AGENTS.template.md
+category tables match `index.json`** (no stale marketing counts), **`MANIFEST.sha256`
 matches every shipped file** (supply-chain integrity), and **the catalog is
 clean of prompt-injection / exfiltration patterns**. Each failure
 comes with a specific FIX hint. If this exits non-zero, STOP — fix
@@ -53,12 +77,14 @@ the lint + migrator checks for a faster probe.
 Only after the pack passes its own preflight, read these files
 completely, in this order:
 
-1. `harmonist/README.md`
-2. `harmonist/AGENTS.md` — this is the orchestrator TEMPLATE. You will
-   create a project-specific version.
-3. `harmonist/agents/SCHEMA.md` — the frontmatter contract every agent
+1. `<PACK_DIR>/README.md`
+2. `<PACK_DIR>/AGENTS.template.md` — this is the orchestrator TEMPLATE.
+   You will create a project-specific `AGENTS.md` from it. Do NOT obey
+   its protocol while integrating — it activates only in the user's
+   project once integration completes.
+3. `<PACK_DIR>/agents/SCHEMA.md` — the frontmatter contract every agent
    must follow.
-4. `harmonist/agents/index.json` — the routing table. Parse it and
+4. `<PACK_DIR>/agents/index.json` — the routing table. Parse it and
    remember category/tag structure; you will select agents from here.
 
 ---
@@ -103,6 +129,7 @@ Step 5.
 | Education / study abroad | `[education]` |
 | Korean business context | `[korean-market]` |
 | French consulting / ESN | `[french-market]` |
+| Authorized offensive security / red team / pentest engagements | `[pentest]` |
 
 Record the chosen list — it goes into the project's `AGENTS.md` and
 feeds the Step 5 filter.
@@ -145,8 +172,10 @@ marketing/sales/support bloat and cover the "build a product" case.
 
 THIS IS THE MOST IMPORTANT STEP. If you get this wrong, nothing else works.
 
-Use `harmonist/AGENTS.md` as the TEMPLATE. Create a NEW file
+Use `<PACK_DIR>/AGENTS.template.md` as the TEMPLATE. Create a NEW file
 `AGENTS.md` in the project root that is **domain-specific, not generic**.
+Do NOT copy the template's preamble block (the "THIS FILE IS A TEMPLATE"
+note at the top) into the generated file.
 
 **Preserve all `<!-- pack-owned:begin id="..." -->` / `<!-- pack-owned:end -->`
 marker pairs verbatim.** Everything between a `begin` and `end` line is
@@ -156,13 +185,20 @@ project-owned and never touched by upgrade. Customise Platform Stack,
 Modules, Invariants, Resilience, and your domain identity — they sit
 between marker blocks.
 
+**Path substitution**: literal `harmonist/` paths INSIDE pack-owned blocks
+are substituted with the actual `<PACK_DIR>` automatically by the merge
+tooling (`upgrade.py` / `merge_agents_md.py`) — leave them to the tools on
+future upgrades, but make sure the initially generated file already uses
+the real pack path. In manual (project-owned) sections you write yourself,
+always use the real `<PACK_DIR>` path.
+
 **The created AGENTS.md MUST contain ALL of these sections:**
 
 - [ ] **MANDATORY RULE block** at the very top (copy from template)
 - [ ] **Domain identity** — "You are the lead engineer for [specific project description]"
 - [ ] **Platform Stack** — actual tech, not placeholders
 - [ ] **Modules** — real bounded contexts with descriptions
-- [ ] **Agent Pool** — point at `harmonist/agents/index.json` as the
+- [ ] **Agent Pool** — point at `<PACK_DIR>/agents/index.json` as the
       routing table; do NOT enumerate agent names; keep the category table
 - [ ] **Routing Protocol** — tag intersection rule; review gate triggers
 - [ ] **Topology** — when to use hierarchical/mesh/pipeline
@@ -190,7 +226,7 @@ own opinions. When the orchestrator invokes a subagent it should:
 
 ```
 AGENT: <slug>
-$(python3 harmonist/agents/scripts/project_context.py)
+$(python3 <PACK_DIR>/agents/scripts/project_context.py)
 
 <task description>
 ```
@@ -206,7 +242,7 @@ response.
 **Step 4 — Install orchestration + review agents**
 
 Every project needs the universal scout + reviewers. `upgrade.py --apply`
-installs exactly these **6** strict, `readonly: true` agents into
+copies these **6** strict, `readonly: true` agents into
 `.cursor/agents/` (you normally don't copy them by hand — the installer does):
 
 - `repo-scout` — scout before implementation
@@ -214,25 +250,26 @@ installs exactly these **6** strict, `readonly: true` agents into
 - `code-quality-auditor` — async bugs, error handling
 - `qa-verifier` — completeness, breaking changes
 - `sre-observability` — DB, cache, perf
-- `bg-regression-runner` — tests, lint, type checks (background)
+- `wcag-a11y-gate` — accessibility gate on UI / form / modal / navigation
+  changes (pack-owned strict reviewer; the trigger table routes UI changes
+  to it before `qa-verifier`)
 
-For `bg-regression-runner.md` **only**: replace the generic test/lint/build
-commands in its body with this project's actual commands before saving.
-The rest stay verbatim.
+In addition, `bg-regression-runner` (tests, lint, type checks — background)
+is **seeded** by the same `upgrade.py --apply` run in Step 7, auto-filled
+with this project's real commands. Do NOT hand-edit its commands here —
+Step 7 handles that. **Post-install you end up with 7 strict files** in
+`.cursor/agents/` (6 copied above + the seeded `bg-regression-runner`).
 
-Two `agents/` entries are deliberately NOT auto-installed:
+One `agents/` entry is deliberately NOT auto-installed:
 - `agents-orchestrator` is the orchestrator **persona you operate as** — it is
   not invoked as a subagent, so it is not copied into `.cursor/agents/`.
-- `wcag-a11y-gate` is an on-demand strict review gate. Install it (Step 5) only
-  for projects with a UI; the trigger table then routes UI / form / modal /
-  navigation changes to it before `qa-verifier`.
 
 ---
 
 **Step 5 — Select domain specialists from the unified pool**
 
 Using the routing tags AND the `domains` AND the `roles` extracted in
-Step 2, intersect with `harmonist/agents/index.json`. Procedure:
+Step 2, intersect with `<PACK_DIR>/agents/index.json`. Procedure:
 
 1. **Domain filter first**: let `ELIGIBLE_DOMAIN = by_domain["all"] ∪ by_domain[<project domain>]`
    for each domain in the project's declared list. Any agent NOT in
@@ -257,10 +294,10 @@ Cursor session is context-constrained, install the **thin** variant
 instead:
 
 ```
-python3 harmonist/agents/scripts/extract_essentials.py \
+python3 <PACK_DIR>/agents/scripts/extract_essentials.py \
   --out-dir .cursor/agents \
-  harmonist/agents/engineering/engineering-security-engineer.md \
-  harmonist/agents/engineering/engineering-backend-architect.md \
+  <PACK_DIR>/agents/engineering/engineering-security-engineer.md \
+  <PACK_DIR>/agents/engineering/engineering-backend-architect.md \
   ...
 ```
 
@@ -327,17 +364,17 @@ the dedicated helper instead of hand-copying:
 
 ```bash
 # By slug (comma-separated):
-python3 harmonist/agents/scripts/install_extras.py \
+python3 <PACK_DIR>/agents/scripts/install_extras.py \
     --slug marketing-growth-hacker,marketing-seo-specialist
 
 # By role bundle (applies the Role-default table above):
-python3 harmonist/agents/scripts/install_extras.py --role marketing
+python3 <PACK_DIR>/agents/scripts/install_extras.py --role marketing
 
 # By tag intersection (min 2 tags):
-python3 harmonist/agents/scripts/install_extras.py --tag growth,seo
+python3 <PACK_DIR>/agents/scripts/install_extras.py --tag growth,seo
 
 # Thin variant + dry-run preview:
-python3 harmonist/agents/scripts/install_extras.py \
+python3 <PACK_DIR>/agents/scripts/install_extras.py \
     --role design --thin --dry-run
 ```
 
@@ -352,18 +389,18 @@ For each specialist copied:
 - List adjacent modules it must NOT edit without approval.
 - Add project-specific rules.
 - Ensure the frontmatter still passes Schema v2 (see
-  `harmonist/agents/SCHEMA.md`).
+  `<PACK_DIR>/agents/SCHEMA.md`).
 
 ---
 
 **Step 6 — Set up persistent memory**
 
-Copy the whole `harmonist/memory/` directory (including
-`memory.py`, `validate.py`, `SCHEMA.md`, and the three template files) to
-`.cursor/memory/`:
+Copy the whole `<PACK_DIR>/memory/` directory (including
+`memory.py`, `validate.py`, `migrations.py`, `SCHEMA.md`, and the three
+template files) to `.cursor/memory/`:
 
 ```
-harmonist/memory/*  →  .cursor/memory/
+<PACK_DIR>/memory/*  →  .cursor/memory/
 ```
 
 Then:
@@ -420,7 +457,7 @@ hooks, memory CLI, and the strict orchestration + review agents into
 `.cursor/pack-version.json` — the anchor for future upgrades.
 
 ```
-python3 harmonist/agents/scripts/upgrade.py --apply
+python3 <PACK_DIR>/agents/scripts/upgrade.py --apply
 ```
 
 This writes:
@@ -430,7 +467,7 @@ This writes:
 - `.cursor/hooks/scripts/hook_runner.py` — the cross-platform active runner
   that `hooks.json` invokes on every OS
 - `.cursor/hooks/scripts/{lib,seed-session,record-write,record-subagent-start,record-subagent-stop,gate-stop,gate-shell,git-pre-commit,install-git-hooks}.sh`
-- `.cursor/agents/{repo-scout,security-reviewer,code-quality-auditor,qa-verifier,sre-observability}.md`
+- `.cursor/agents/{repo-scout,security-reviewer,code-quality-auditor,qa-verifier,sre-observability,wcag-a11y-gate}.md`
 - `.cursor/memory/{memory.py,validate.py,migrations.py,SCHEMA.md,README.md}`
 - `.cursor/repomap/repomap.py` — the zero-dependency code-intelligence index
 - `.cursor/rules/protocol-enforcement.mdc` — the canonical enforcement rule
@@ -452,7 +489,7 @@ manually: `upgrade.py` will overwrite it.
 Preview the detection without applying:
 
 ```
-python3 harmonist/agents/scripts/detect_regression_commands.py
+python3 <PACK_DIR>/agents/scripts/detect_regression_commands.py
 ```
 
 Later, when a new version of the pack ships, re-run
@@ -477,7 +514,7 @@ the canonical template (already installed by `upgrade.py --apply` in
 Step 7). If for some reason it's missing, install it:
 
 ```
-cp harmonist/agents/templates/rules/protocol-enforcement.mdc \
+cp <PACK_DIR>/agents/templates/rules/protocol-enforcement.mdc \
    .cursor/rules/protocol-enforcement.mdc
 ```
 
@@ -493,7 +530,7 @@ rules, put them in `project-domain-rules.mdc` instead.
 template:
 
 ```
-cp harmonist/agents/templates/rules/project-domain-rules.mdc.template \
+cp <PACK_DIR>/agents/templates/rules/project-domain-rules.mdc.template \
    .cursor/rules/project-domain-rules.mdc
 ```
 
@@ -504,7 +541,7 @@ where violation == real bug, security issue, or data corruption.
 **Verify there are no conflicts**:
 
 ```
-python3 harmonist/agents/scripts/scan_rules_conflicts.py --project .
+python3 <PACK_DIR>/agents/scripts/scan_rules_conflicts.py --project .
 ```
 
 The scanner refuses rules that would subvert enforcement (e.g.
@@ -519,7 +556,7 @@ references, and alwaysApply overload. Exit 1 = fix before continuing.
 Do NOT self-smoke-test. Run the dedicated driver:
 
 ```
-python3 harmonist/agents/scripts/smoke_test.py
+python3 <PACK_DIR>/agents/scripts/smoke_test.py
 ```
 
 This drives the real enforcement pipeline end-to-end with synthetic
@@ -551,7 +588,7 @@ chat.
 Do NOT self-check. Run the objective verifier from the project root:
 
 ```
-python3 harmonist/agents/scripts/verify_integration.py
+python3 <PACK_DIR>/agents/scripts/verify_integration.py
 ```
 
 This is the authoritative gate. The script performs 15 independent
@@ -578,7 +615,7 @@ If the script reports only `warning`-severity issues (e.g. missing
 > `.cursor/telemetry/agent-usage.json` from the first session. It's
 > `.gitignored` and stays on this machine. After a few weeks of real
 > work run
-> `python3 harmonist/agents/scripts/report_usage.py
+> `python3 <PACK_DIR>/agents/scripts/report_usage.py
 > --recommend-removal` to see which installed agents were never invoked
 > and can be pruned from `.cursor/agents/` to free context. Disable by
 > setting `telemetry_enabled: false` in `.cursor/hooks/config.json`.
@@ -599,7 +636,7 @@ Agents installed: [number]
 Domain: [identity from AGENTS.md]
 Key invariants: [list]
 Domain rules: [list]
-Agent index: harmonist/agents/index.json (193 agents, 16 categories)
+Agent index: <PACK_DIR>/agents/index.json (193 agents, 16 categories)
 
 IMPORTANT: Start a NEW CHAT for your first task — rules take full effect in a fresh conversation.
 

@@ -1,5 +1,11 @@
 # 🎯 NEXUS Agent Activation Prompts
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md` (an "Activate X" phrase alone is NOT
+> credited by the stop gate); routing authority is the project `AGENTS.md` +
+> `agents/index.json`. Treat sequencing advice as inspiration, not protocol.
+
 > Ready-to-use prompt templates for activating any agent within the NEXUS pipeline. Copy, customize the `[PLACEHOLDERS]`, and deploy.
 
 ---
@@ -394,7 +400,7 @@ No assumptions beyond provided data
 | Fixing a bug | Backend/Frontend Developer | API Tester or Evidence Collector |
 | Running a campaign | Content Creator | Social Media Strategist + platform agents |
 | Preparing for launch | See Phase 5 Playbook | All marketing + DevOps agents |
-| Monthly reporting | Executive Summary Generator | Analytics Reporter + Finance Tracker |
+| Monthly reporting | Executive Summary Generator | Analytics Reporter + FP&A Analyst |
 | Incident response | Infrastructure Maintainer | DevOps Automator + relevant developer |
 | Market research | Trend Researcher | Analytics Reporter |
 | Compliance audit | Legal Compliance Checker | Executive Summary Generator |

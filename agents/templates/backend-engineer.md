@@ -1,8 +1,9 @@
 ---
+schema_version: 2
 name: backend-engineer
 description: Implements backend business logic, API endpoints, database queries, and the service layer. Use for server-side code changes.
 category: engineering
-protocol: strict
+protocol: persona
 readonly: false
 is_background: false
 model: claude-opus-4-8

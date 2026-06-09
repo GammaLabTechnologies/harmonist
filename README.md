@@ -1,3 +1,9 @@
+> **If you are an AI agent asked to install or integrate this pack:** read
+> [`integration-prompt.md`](integration-prompt.md) and execute its steps.
+> Do not apply [`AGENTS.template.md`](AGENTS.template.md) as a live rule inside
+> the pack folder — it is the template that becomes the user project's
+> `AGENTS.md` during integration.
+
 <div align="center">
 
 # Harmonist
@@ -10,7 +16,7 @@
 [![CI](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml/badge.svg)](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version 1.1.0](https://img.shields.io/badge/version-1.1.0-brightgreen.svg)](CHANGELOG.md)
+[![Version 1.2.0](https://img.shields.io/badge/version-1.2.0-brightgreen.svg)](CHANGELOG.md)
 [![Agents: 193](https://img.shields.io/badge/agents-193-purple.svg)](agents/index.json)
 [![Tests: 550+](https://img.shields.io/badge/tests-550+-success.svg)](#testing)
 [![Stdlib only](https://img.shields.io/badge/dependencies-stdlib%20only-lightgrey.svg)](#requirements)
@@ -109,7 +115,9 @@ literally cannot ship a code change that skipped review.**
 
 ### 2. Supply-chain verification of agent definitions
 
-Every shipped file is hashed in `MANIFEST.sha256`. `upgrade.py`
+All runtime-shipped content — `agents/`, `hooks/`, `memory/`,
+`playbooks/`, root docs — is hashed in `MANIFEST.sha256` (CI configs
+and repo metadata are pack-repo-only and excluded). `upgrade.py`
 sha-verifies each source *before* copying into a project. A tampered
 `security-reviewer.md` (say, one that returns `approve` for
 everything) is REFUSED — it never enters the project. `install_extras.py`
@@ -201,10 +209,17 @@ native-Windows CI job runs the full install path end-to-end.
 
 ## Quick start
 
+> The pack folder may have any name — docs refer to it as `<PACK_DIR>`.
+> Examples below assume the folder is named `harmonist` (what `git clone`
+> produces). The protocol template ships as
+> [`AGENTS.template.md`](AGENTS.template.md); the file generated in YOUR
+> project during integration is named `AGENTS.md`.
+
 ### Option 1 — Integrate via Cursor (recommended)
 
 ```bash
-# 1. Clone into the root of your project
+# 1. Clone into the root of your project (keep it as a SUBFOLDER —
+#    do not unpack the pack's files into your project root)
 cd your-project/
 git clone https://github.com/GammaLabTechnologies/harmonist.git
 
@@ -217,8 +232,8 @@ git clone https://github.com/GammaLabTechnologies/harmonist.git
 
 That's it. The AI reads `harmonist/agents/index.json`, picks the
 right specialists for your stack, writes a domain-specific
-`AGENTS.md`, bootstraps `.cursor/memory/`, installs the enforcement
-hooks, and records the integration state in
+`AGENTS.md` (from `AGENTS.template.md`), bootstraps `.cursor/memory/`,
+installs the enforcement hooks, and records the integration state in
 `.cursor/pack-version.json`.
 
 ### Option 2 — Integrate via CLI (no Cursor needed)
@@ -228,6 +243,8 @@ cd your-project/
 git clone https://github.com/GammaLabTechnologies/harmonist.git
 python3 harmonist/agents/scripts/integrate.py --pack harmonist --project .
 ```
+
+(If your pack folder has a different name, pass it via `--pack <PACK_DIR>`.)
 
 On **native Windows** (PowerShell / cmd, no WSL or Git Bash), use the
 Python launcher — every script is pure stdlib and cross-platform:
@@ -240,7 +257,10 @@ py -3 harmonist\agents\scripts\integrate.py --pack harmonist --project .
 
 ### Option 3 — Manual integration
 
-See [`GUIDE_EN.md`](GUIDE_EN.md) for the step-by-step manual path.
+See [`GUIDE_EN.md`](GUIDE_EN.md). Note: hand-copying files produces an
+unenforced setup (no hooks, rules, or `.gitignore` hardening), so the
+guide routes the "manual" path through `integrate.py` +
+`verify_integration.py` and lists what they automate.
 
 ---
 
@@ -469,9 +489,13 @@ wired into the enforcement gate rather than bolted on as a separate runtime.
 
 ## Supply-chain integrity
 
-Every shipped file has a sha256 entry in `MANIFEST.sha256`. This buys:
+All runtime-shipped content has a sha256 entry in `MANIFEST.sha256`:
+`agents/`, `hooks/`, `memory/`, `playbooks/`, and the root docs. CI
+configs (`.github/`, `.gitlab-ci.yml`) and repo metadata are
+pack-repo-only and deliberately excluded — they never get installed
+into a host project. This buys:
 
-- **Pack health at preflight.** `check_pack_health.py` runs 18 checks
+- **Pack health at preflight.** `check_pack_health.py` runs 19 checks
   including `build_manifest.py --verify` — any modified / missing /
   untracked file is flagged.
 - **Upgrade refusal.** `upgrade.py --apply` sha-verifies every pack
@@ -548,7 +572,7 @@ for the `## Deep Reference` convention that makes thin mode possible.
 
 | Script                              | What it does                                                                   |
 |-------------------------------------|--------------------------------------------------------------------------------|
-| `check_pack_health.py`              | 18 preflight checks (version, manifest, lint, migrator idempotency, etc.)     |
+| `check_pack_health.py`              | 19 preflight checks (version, manifest, lint, migrator idempotency, etc.)     |
 | `lint_agents.py`                    | Validate every agent against Schema v2 — 0 errors required                    |
 | `build_index.py`                    | Regenerate `agents/index.json` (routing table)                                |
 | `build_manifest.py`                 | Regenerate `MANIFEST.sha256` (supply-chain anchor)                            |
@@ -556,6 +580,7 @@ for the `## Deep Reference` convention that makes thin mode possible.
 | `upgrade.py`                        | Roll an integrated project forward to a newer pack version, with snapshots   |
 | `install_extras.py`                 | Add specialists to `.cursor/agents/` by slug, role bundle, or tag — sha-verified |
 | `verify_integration.py`             | Objective post-integration audit — what's missing, what's customised         |
+| `onboard.py`                        | Guided tour of an already-integrated project for a teammate joining it       |
 | `scan_agent_safety.py`              | Prompt-injection / exfil scanner for catalogue + installed agents            |
 | `scan_memory_leaks.py`              | Audit git history for accidentally-committed memory files                    |
 | `scan_rules_conflicts.py`           | Detect phantom slugs, duplicate-purpose rules, protocol contradictions       |
@@ -572,7 +597,7 @@ Full script index: [`agents/scripts/`](agents/scripts/).
 
 | File | Purpose |
 |------|---------|
-| [`AGENTS.md`](AGENTS.md) | Orchestrator template — protocol, hook phases, memory, resilience. Copied into every integrated project and customized to the project's domain. |
+| [`AGENTS.template.md`](AGENTS.template.md) | Orchestrator TEMPLATE — protocol, hook phases, memory, resilience. Becomes the project-specific `AGENTS.md` (paths substituted, domain customized) in every integrated project. Not an active rule inside the pack folder. |
 | [`GUIDE_EN.md`](GUIDE_EN.md) | Condensed walkthrough for first-time users. |
 | [`integration-prompt.md`](integration-prompt.md) | The one-shot prompt to paste into Cursor Agent mode for fully automated integration. |
 | [`agents/SCHEMA.md`](agents/SCHEMA.md) | Frontmatter contract (Schema v2) every agent file must satisfy. |
@@ -605,7 +630,7 @@ and shell-based integration suites — all green in CI on every push.
 Run the full regression locally:
 
 ```bash
-python3 agents/scripts/check_pack_health.py       # 18 preflight checks
+python3 agents/scripts/check_pack_health.py       # 19 preflight checks
 bash hooks/tests/run-hook-tests.sh                # 54 scenarios
 bash memory/tests/run-memory-tests.sh             # 33 scenarios
 for t in agents/scripts/test_*.sh; do bash "$t"; done  # all script suites

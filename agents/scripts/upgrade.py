@@ -27,14 +27,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -52,20 +84,23 @@ from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # What the pack OWNS: these files are always identical to the pack source.
-# Each entry: (pack_source_relative, project_target_relative, kind)
-#   kind = "file"   -- one-to-one copy
-#        = "dir"    -- recursive copy of every file (preserves mtime)
+#
+# The strict-agent set is derived from agents/index.json via strict_slugs.py
+# (shared with verify_integration / onboard / install_extras / deintegrate,
+# so the lists can no longer diverge).
+# NOTE: bg-regression-runner is intentionally EXCLUDED -- each project
+# customises the test/lint/build commands in its body. Upgrading the pack
+# must not wipe those; it is seeded separately below.
 # ---------------------------------------------------------------------------
-PACK_OWNED_STRICT_SLUGS = [
-    "orchestration/repo-scout.md",
-    "review/security-reviewer.md",
-    "review/code-quality-auditor.md",
-    "review/qa-verifier.md",
-    "review/sre-observability.md",
-    # NOTE: bg-regression-runner is intentionally EXCLUDED -- each project
-    # customises the test/lint/build commands in its body. Upgrading the pack
-    # must not wipe those.
-]
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+from strict_slugs import INSTALLED_BY_UPGRADE_RELPATHS as PACK_OWNED_STRICT_SLUGS  # noqa: E402
+from merge_agents_md import (  # noqa: E402
+    merge as merge_agents_md_fn,
+    pack_dir_relname,
+    pack_template_path,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +163,7 @@ def render_hooks_json(pack_hooks_json: Path, interpreter: str) -> str:
     """Render a project's .cursor/hooks.json from the pack template,
     rewriting every hook command so it launches the Python runner with
     `interpreter`. Preserves loop_limit and any other keys verbatim."""
-    data = json.loads(pack_hooks_json.read_text())
+    data = json.loads(pack_hooks_json.read_text(encoding="utf-8"))
     for entries in (data.get("hooks") or {}).values():
         for entry in entries:
             cmd = entry.get("command", "")
@@ -148,7 +183,10 @@ class UpgradeOp:
     source: Path
     target: Path
     reason: str
-    action: str = "copy"  # copy | create | skip
+    action: str = "copy"  # copy | create | skip | refused
+    # True only when this run actually wrote the target to disk. Stays
+    # False on dry-runs, so the report can't claim phantom writes.
+    applied: bool = False
 
 
 @dataclass
@@ -180,7 +218,7 @@ def read_pack_version(pack_root: Path) -> str:
     vf = pack_root / "VERSION"
     if not vf.exists():
         return ""
-    return vf.read_text().strip()
+    return vf.read_text(encoding="utf-8").strip()
 
 
 def read_project_version(project_root: Path) -> dict:
@@ -188,7 +226,7 @@ def read_project_version(project_root: Path) -> dict:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
@@ -200,7 +238,7 @@ def write_project_version(project_root: Path, pack_version: str) -> None:
         "pack_version": pack_version,
         "integrated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    p.write_text(json.dumps(payload, indent=2) + "\n")
+    p.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +263,9 @@ GITIGNORE_LINES = [
 def ensure_gitignore(project_root: Path, apply: bool) -> tuple[bool, bool]:
     """Make sure .gitignore excludes memory files. Returns (changed, created)."""
     gi = project_root / ".gitignore"
-    existing = gi.read_text() if gi.exists() else ""
+    # USER-owned file: strict UTF-8 so a Windows locale default can't
+    # mojibake the existing content when we append our block below.
+    existing = gi.read_text(encoding="utf-8") if gi.exists() else ""
     if GITIGNORE_BLOCK_MARKER in existing:
         return (False, False)
     created = not gi.exists()
@@ -234,7 +274,7 @@ def ensure_gitignore(project_root: Path, apply: bool) -> tuple[bool, bool]:
         existing += "\n"
     new_content = existing + ("\n" if existing else "") + block
     if apply:
-        gi.write_text(new_content)
+        gi.write_text(new_content, encoding="utf-8")
     return (True, created)
 
 
@@ -289,9 +329,10 @@ def pack_owned_plan(pack_root: Path, project_root: Path) -> list[UpgradeOp]:
         tgt = project_root / ".cursor" / ("hooks.json" if rel == "hooks.json" else f"hooks/{rel}")
         ops.append(UpgradeOp(src, tgt, reason="hooks"))
 
-    # 3. Memory tooling (CLI + validator + schema docs). Template markdown
-    #    files are excluded -- they contain real project history.
-    for rel in ["memory.py", "validate.py", "SCHEMA.md", "README.md"]:
+    # 3. Memory tooling (CLI + validator + migrations + schema docs).
+    #    Template markdown files are excluded -- they contain real project
+    #    history.
+    for rel in ["memory.py", "validate.py", "migrations.py", "SCHEMA.md", "README.md"]:
         src = pack_root / "memory" / rel
         tgt = project_root / ".cursor" / "memory" / rel
         ops.append(UpgradeOp(src, tgt, reason="memory-tooling"))
@@ -317,7 +358,7 @@ def pack_owned_plan(pack_root: Path, project_root: Path) -> list[UpgradeOp]:
             ops.append(UpgradeOp(rule_src, rule_tgt,
                                  reason="cursor-rule-protocol (initial)"))
         else:
-            existing = rule_tgt.read_text(errors="replace")
+            existing = rule_tgt.read_text(encoding="utf-8", errors="replace")
             if "pack-owned: protocol-enforcement" in existing:
                 ops.append(UpgradeOp(rule_src, rule_tgt,
                                      reason="cursor-rule-protocol"))
@@ -338,8 +379,8 @@ def _same_bytes(a: Path, b: Path) -> bool:
 
 
 def _render_diff(src: Path, tgt: Path, width: int = 4) -> str:
-    s = src.read_text(errors="replace").splitlines(keepends=True) if src.exists() else []
-    t = tgt.read_text(errors="replace").splitlines(keepends=True) if tgt.exists() else []
+    s = src.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True) if src.exists() else []
+    t = tgt.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True) if tgt.exists() else []
     return "".join(
         difflib.unified_diff(
             t, s, fromfile=str(tgt), tofile=str(src), n=width,
@@ -382,7 +423,7 @@ def plan_upgrade(pack_root: Path, project_root: Path) -> UpgradeReport:
             rendered = render_hooks_json(op.source, detect_hook_interpreter())
             if not op.target.exists():
                 op.action = "create"
-            elif op.target.read_text() == rendered:
+            elif op.target.read_text(encoding="utf-8") == rendered:
                 op.action = "skip"
             else:
                 op.action = "copy"
@@ -413,7 +454,7 @@ def _load_manifest(pack_root: Path) -> dict[str, str]:
     if not mf.exists():
         return {}
     out: dict[str, str] = {}
-    for raw in mf.read_text().splitlines():
+    for raw in mf.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
@@ -539,7 +580,8 @@ def _take_snapshot(report: UpgradeReport, project_root: Path) -> Path | None:
         "creations":    sorted(set(creations)),
     }
     meta_path = snap_dir / (tarball.stem.replace(".tar", "") + ".json")
-    meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
+    meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n",
+                         encoding="utf-8")
     return tarball
 
 
@@ -587,9 +629,11 @@ def apply_plan(report: UpgradeReport, dry_run: bool,
             # Render with a host-appropriate Python launcher rather than
             # copying the pack's bare `python3` command verbatim.
             op.target.write_text(
-                render_hooks_json(op.source, detect_hook_interpreter()))
+                render_hooks_json(op.source, detect_hook_interpreter()),
+                encoding="utf-8")
         else:
             shutil.copy2(op.source, op.target)
+        op.applied = True
 
     # Write .cursor/pack-manifest.json so we can detect post-install
     # drift (someone edits security-reviewer.md to weaken the gate).
@@ -647,7 +691,7 @@ def rollback(project_root: Path, which: str | None = None) -> "UpgradeReport":
     creations: list[str] = []
     if meta_path.exists():
         try:
-            creations = json.loads(meta_path.read_text()).get("creations", [])
+            creations = json.loads(meta_path.read_text(encoding="utf-8")).get("creations", [])
         except Exception:
             creations = []
 
@@ -706,8 +750,7 @@ def _write_installed_manifest(report: UpgradeReport, pack_root: Path,
             continue
         try:
             rel_target = op.target.resolve().relative_to(
-                op.target.resolve().parents[100] if False else _project_root_from_op(op)
-            ).as_posix()
+                _project_root_from_op(op)).as_posix()
         except Exception:
             rel_target = op.target.name
         if _is_hooks_json_op(op):
@@ -739,7 +782,8 @@ def _write_installed_manifest(report: UpgradeReport, pack_root: Path,
         "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "files": installed,
     }
-    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                      encoding="utf-8")
 
 
 def _project_root_from_op(op: "UpgradeOp") -> Path:
@@ -791,7 +835,7 @@ def render_report(report: UpgradeReport, mode: str, show_diff: bool) -> str:
     if mode == "dry-run":
         lines.append("  (dry-run: nothing written. Re-run with --apply to perform the upgrade.)")
     elif mode == "apply":
-        changed = counts.get("create", 0) + counts.get("copy", 0)
+        changed = sum(1 for op in report.operations if op.applied)
         lines.append(f"  Applied: {changed} file(s) refreshed.")
     return "\n".join(lines)
 
@@ -837,7 +881,7 @@ def main(argv: list[str]) -> int:
             meta_data = {}
             if meta_path.exists():
                 try:
-                    meta_data = json.loads(meta_path.read_text())
+                    meta_data = json.loads(meta_path.read_text(encoding="utf-8"))
                 except Exception:
                     pass
             fc = meta_data.get("file_count", "?")
@@ -894,12 +938,11 @@ def main(argv: list[str]) -> int:
     # template, seed it from the detected project commands. A file that
     # already contains real test commands is left alone.
     try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
         from detect_regression_commands import detect_all, render_bg_regression  # noqa: E402
         bg_path = project_root / ".cursor" / "agents" / "bg-regression-runner.md"
         needs_seeding = True
         if bg_path.exists():
-            body = bg_path.read_text()
+            body = bg_path.read_text(encoding="utf-8", errors="replace")
             placeholder_markers = ("<PROJECT_TEST_CMD>", "<replace this>", "[CUSTOMIZE",
                                    "TBD", "your project's test command")
             already_customised = any(m.lower() in body.lower() for m in placeholder_markers) is False
@@ -912,19 +955,21 @@ def main(argv: list[str]) -> int:
         if needs_seeding:
             pack_src = pack_root / "agents" / "review" / "bg-regression-runner.md"
             if pack_src.exists():
-                template = pack_src.read_text()
+                template = pack_src.read_text(encoding="utf-8")
                 cmds = detect_all(project_root)
                 block = render_bg_regression(cmds)
                 # Drop the new block just before the final newline of the template.
                 seeded = template.rstrip() + "\n\n" + block
+                existed_before = bg_path.exists()
                 if args.apply:
                     bg_path.parent.mkdir(parents=True, exist_ok=True)
-                    bg_path.write_text(seeded)
+                    bg_path.write_text(seeded, encoding="utf-8")
                 report.operations.append(UpgradeOp(
                     source=pack_src, target=bg_path,
                     reason=f"bg-regression-runner seeded from detected manifests "
                            f"(tests={cmds['test'] or '-'}, lint={cmds['lint'] or '-'})",
-                    action="create" if not bg_path.exists() else "copy",
+                    action="copy" if existed_before else "create",
+                    applied=args.apply,
                 ))
     except Exception as e:
         report.errors.append(f"bg-regression auto-config crashed: {e.__class__.__name__}: {e}")
@@ -938,28 +983,37 @@ def main(argv: list[str]) -> int:
                 source=pack_root / "agents" / "scripts" / "upgrade.py",
                 target=project_root / ".gitignore",
                 reason="gitignore: memory-privacy block " + ("added" if not created else "file created"),
-                action="copy" if args.apply else "copy",
+                # Action stays the would-change plan ("create"/"copy");
+                # `applied` records whether bytes actually hit disk.
+                action="create" if created else "copy",
+                applied=args.apply,
             ))
     except Exception as e:
         report.errors.append(f"gitignore hardening crashed: {e.__class__.__name__}: {e}")
 
-    # Splice pack-owned sections from the pack's AGENTS.md into the project's
-    # AGENTS.md. Non-fatal: if the project's AGENTS.md predates markers, the
-    # merger refuses with a clear error and we continue.
+    # Splice pack-owned sections from the pack's AGENTS template
+    # (AGENTS.template.md; legacy packs: AGENTS.md) into the project's
+    # AGENTS.md, rewriting literal `harmonist/` path prefixes to the
+    # actual pack dir name. Non-fatal: if the project's AGENTS.md predates
+    # markers, the merger refuses with a clear error and we continue.
     try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from merge_agents_md import merge as merge_agents_md_fn   # noqa: E402
-        mr = merge_agents_md_fn(pack_root / "AGENTS.md", project_root / "AGENTS.md")
+        pack_tpl = pack_template_path(pack_root)
+        mr = merge_agents_md_fn(
+            pack_tpl, project_root / "AGENTS.md",
+            pack_dir=pack_dir_relname(pack_root, project_root))
         if mr.errors:
             report.errors.extend(mr.errors)
         elif mr.replaced or mr.inserted:
             if args.apply:
-                (project_root / "AGENTS.md").write_text(mr.output)
+                # USER-owned file: strict UTF-8 (cp1252 would mojibake it).
+                (project_root / "AGENTS.md").write_text(mr.output,
+                                                        encoding="utf-8")
             report.operations.append(UpgradeOp(
-                source=pack_root / "AGENTS.md",
+                source=pack_tpl,
                 target=project_root / "AGENTS.md",
                 reason=f"AGENTS.md pack-owned merge (replaced={mr.replaced}, inserted={mr.inserted})",
-                action="copy" if args.apply else "copy",  # intentional: show as changed
+                action="copy",
+                applied=args.apply,
             ))
     except Exception as e:
         report.errors.append(f"merge_agents_md crashed: {e.__class__.__name__}: {e}")
@@ -975,7 +1029,8 @@ def main(argv: list[str]) -> int:
             **report.summary(),
             "operations": [
                 {"source": str(op.source), "target": str(op.target),
-                 "reason": op.reason, "action": op.action}
+                 "reason": op.reason, "action": op.action,
+                 "applied": op.applied}
                 for op in report.operations
             ],
             "errors": report.errors,

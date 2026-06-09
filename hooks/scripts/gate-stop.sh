@@ -61,7 +61,7 @@ import sys
 import tempfile
 
 state_path = pathlib.Path(os.environ["STATE_FILE_PATH"])
-state = json.loads(state_path.read_text())
+state = json.loads(state_path.read_text(encoding="utf-8"))
 cfg = json.loads(os.environ["CFG_JSON"])
 memory_cli = os.environ.get("MEMORY_CLI", "")
 
@@ -80,28 +80,54 @@ def log(msg: str) -> None:
     try:
         from datetime import datetime as _dt, timezone as _tz
         ts = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        with log_file.open("a") as fh:
+        with log_file.open("a", encoding="utf-8") as fh:
             fh.write(f"[{ts}] stop: {msg}\n")
     except Exception:
         pass
 
 
 def bump_task() -> None:
-    """Advance task_seq and reset per-task buckets so the next task starts clean."""
-    sid = state["session_id"]
-    state["task_seq"] = int(state.get("task_seq", 0)) + 1
-    state["active_correlation_id"] = f"{sid}-{state['task_seq']}"
-    state["writes"] = []
-    state["subagent_calls"] = []
-    state["reviewers_seen"] = []
-    state["memory_updates"] = []
-    state["enforcement_attempts"] = 0
-    state["protocol_skipped"] = False
-    state.pop("protocol_skip_reason", None)
+    """Advance task_seq for the next task. Mirrors hook_runner._bump_task:
+
+    * OPEN subagent calls survive the bump -- a still-running background
+      readonly reviewer (bg-regression-runner) must keep its call record,
+      or its late subagentStop finds nothing to close and its slug sticks
+      in active_readonly_subagents forever, flagging every later edit.
+    * Recorder events that landed while this gate was deciding (beyond
+      the snapshot this verdict consumed) carry over to the next task
+      instead of being wiped: we re-read the state file FRESH and trim
+      only the consumed prefix of each bucket.
+    """
+    global state
+    try:
+        fresh = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        fresh = state
+    # Carry exhausted-path markers set on the old object before the bump.
+    for key in ("protocol_incidents", "last_task_status",
+                "last_exhausted_correlation_id"):
+        if key in state:
+            fresh[key] = state[key]
+    sid = fresh.get("session_id") or state["session_id"]
+    fresh["session_id"] = sid
+    fresh["task_seq"] = int(fresh.get("task_seq", 0)) + 1
+    fresh["active_correlation_id"] = f"{sid}-{fresh['task_seq']}"
+    fresh["writes"] = list(fresh.get("writes", []))[len(writes):]
+    fresh["memory_updates"] = list(fresh.get("memory_updates", []))[len(memory_updates):]
+    fresh["readonly_violations"] = (
+        list(fresh.get("readonly_violations", []))[len(readonly_violations):])
+    fresh["subagent_calls"] = [
+        c for c in fresh.get("subagent_calls", [])
+        if not (c.get("stopped_at") or c.get("completed"))
+    ]
+    fresh["reviewers_seen"] = []
+    fresh["enforcement_attempts"] = 0
+    fresh["protocol_skipped"] = False
+    fresh.pop("protocol_skip_reason", None)
     # A prior task's regression pass does not carry over into the new
     # task (new writes -> new regression required if the gate is on).
-    state["last_regression_ok"] = False
-    state["readonly_violations"] = []
+    fresh["last_regression_ok"] = False
+    state = fresh
 
 
 def save_state() -> None:
@@ -318,38 +344,61 @@ if cfg.get("require_regression_passed", False):
     if not last_regression_ok:
         missing.append(
             "real regression run has not passed this task. "
-            "Run: python3 harmonist/agents/scripts/run_regression.py"
+            "Run: python3 <pack-dir>/agents/scripts/run_regression.py"
             + (f"   (last run at {last_regression_at})"
                if last_regression_at else "")
         )
 
 if cfg.get("require_session_handoff_update", True):
-    handoff_paths = [
-        e.get("path", "") for e in memory_updates
+    # The documented write path is the memory.py CLI -- a shell command that
+    # never fires afterFileEdit -- so memory_updates may be empty even when
+    # the handoff WAS updated. Fall back to the handoff file on disk (next
+    # to the memory CLI, then at the configured memory path). Mirrors
+    # hook_runner.py::_locate_handoff_file.
+    handoff_candidates = [
+        pathlib.Path(e.get("path", "")) for e in memory_updates
         if e.get("path", "").endswith("session-handoff.md")
     ]
-    if not handoff_paths:
-        missing.append("session-handoff.md was not updated this task")
-    else:
-        handoff_file = None
-        for p in handoff_paths:
-            fp = pathlib.Path(p)
+    if memory_cli:
+        handoff_candidates.append(
+            pathlib.Path(memory_cli).with_name("session-handoff.md"))
+    for m in cfg.get("memory_paths", []):
+        mp = pathlib.Path(str(m))
+        if mp.name == "session-handoff.md":
+            handoff_candidates.append(
+                mp if mp.is_absolute() else pathlib.Path.cwd() / mp)
+    handoff_file = None
+    for fp in handoff_candidates:
+        try:
             if fp.exists():
                 handoff_file = fp
                 break
-        if handoff_file is None:
-            missing.append(f"session-handoff.md at {handoff_paths[0]} not readable")
-        else:
-            content = handoff_file.read_text()
-            if active_cid and f"correlation_id: {active_cid}" not in content:
-                missing.append(
-                    f"session-handoff.md has no entry with correlation_id={active_cid} "
-                    f"(the current task). Use memory.py to append one."
-                )
+        except Exception:
+            continue
+    if handoff_file is None:
+        missing.append("session-handoff.md was not updated this task "
+                       "(no handoff file found on disk either)")
+    else:
+        # errors="replace": a stray invalid byte in the handoff must not
+        # crash the gate (under set -e that would leave NO hook JSON at all,
+        # which Cursor reads as "no enforcement" -- fail-open).
+        content = handoff_file.read_text(encoding="utf-8", errors="replace")
+        # Line-anchored: a bare substring check let `...-1` match inside
+        # `...-10` and satisfy the gate on the wrong task.
+        if active_cid and not re.search(
+                r"^correlation_id:\s*" + re.escape(active_cid) + r"\s*$",
+                content, re.MULTILINE):
+            missing.append(
+                f"session-handoff.md has no entry with correlation_id={active_cid} "
+                f"(the current task). Use memory.py to append one."
+            )
 
-# Run the validator on every touched memory file. We call validate.py
-# (sibling of memory.py) directly because it supports --quiet.
-if memory_cli and memory_updates:
+# Run the validator whenever the handoff requirement is enforced -- NOT
+# only when an edit-tool write was recorded: the documented write path is
+# the memory.py CLI (never fires afterFileEdit), so an empty memory_updates
+# must not skip schema validation. We call validate.py (sibling of
+# memory.py) directly because it supports --quiet.
+if memory_cli and (memory_updates or cfg.get("require_session_handoff_update", True)):
     validator = pathlib.Path(memory_cli).with_name("validate.py")
     if validator.exists():
         try:

@@ -690,17 +690,37 @@ else
   printf "  FAIL  hitl off still gated: %s\n" "${off:0:160}"; fail=$((fail + 1)); fail_list+=("hitl-off")
 fi
 rm -f "$HOOKS_DIR/config.json"
+# Empty payload (host sent nothing / stdin timed out): the gate cannot
+# evaluate the command, so it must ASK -- allowing silently would fail
+# open on exactly the events it exists for.
+empty_perm="$(printf '{}' | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
+  | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
+assert "HITL asks on empty payload" "ask" "$empty_perm"
+nostdin_perm="$(printf '' | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
+  | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
+assert "HITL asks on absent stdin payload" "ask" "$nostdin_perm"
 
 # ---------------------------------------------------------------------------
 printf "\n=== scenario 23: HITL gate catches hardened catastrophic forms ===\n"
 # The old single-dash pattern missed these; the hardened patterns must ask.
-for c in "rm -rf /usr" "rm --recursive --force /" "rm -rf --no-preserve-root /" "dd of=/dev/sda if=/dev/zero"; do
+for c in "rm -rf /usr" "rm --recursive --force /" "rm -rf --no-preserve-root /" "dd of=/dev/sda if=/dev/zero" "dd of=//dev/sda if=/dev/zero"; do
   perm="$(printf '%s' "{\"command\":\"$c\"}" | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
           | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
   assert "HITL asks for: $c" "ask" "$perm"
 done
-# Routine recursive deletes / test commands must NOT be gated.
-for c in "rm -rf node_modules" "npm test" "rm notes.txt"; do
+# Quoted catastrophic targets and lowercase SQL: the rm rule must tolerate
+# quotes (`rm -rf "$HOME"`), and DROP/TRUNCATE must match case-insensitively.
+# Built via json.dumps because the commands themselves contain double quotes.
+for c in 'rm -rf "$HOME"' 'rm -rf "/"' 'drop table users'; do
+  payload="$(C="$c" python3 -c 'import json,os;print(json.dumps({"command":os.environ["C"]}))')"
+  perm="$(printf '%s' "$payload" | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
+          | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
+  assert "HITL asks for: $c" "ask" "$perm"
+done
+# Routine recursive deletes / test commands must NOT be gated -- and a dd
+# that merely READS a device while writing a regular file (backup/restore)
+# is routine, not a disk wipe (only of=/dev/... is gated).
+for c in "rm -rf node_modules" "npm test" "rm notes.txt" "dd if=/dev/sda of=/tmp/backup.img"; do
   perm="$(printf '%s' "{\"command\":\"$c\"}" | python3 "$SCRIPTS/hook_runner.py" beforeShellExecution \
           | python3 -c 'import json,sys;print(json.load(sys.stdin).get("permission",""))')"
   assert "HITL allows: $c" "allow" "$perm"
@@ -741,6 +761,181 @@ mem_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(
 wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes",[])))')"
 assert "relative handoff recorded as memory_update" "1" "$mem_n"
 assert "relative handoff NOT counted as a code write" "0" "$wr_n"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 26: memory classification requires the memory DIR, not just the basename ===\n"
+# frontend/patterns.md shares a basename with a memory file but does NOT
+# live in the memory dir: it must be recorded as a CODE write (reviewer
+# required), not as a memory update silently bypassing the gate.
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+printf '{"file_path":"frontend/patterns.md"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+mem_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("memory_updates",[])))')"
+wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes",[])))')"
+assert "runner: lookalike path is NOT a memory update" "0" "$mem_n"
+assert "runner: lookalike path IS a code write" "1" "$wr_n"
+# .sh parity.
+reset_state
+pipe_json '{}' "$SCRIPTS/seed-session.sh" >/dev/null
+pipe_json '{"file_path":"frontend/patterns.md"}' "$SCRIPTS/record-write.sh" >/dev/null
+mem_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("memory_updates",[])))')"
+wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes",[])))')"
+assert ".sh: lookalike path is NOT a memory update" "0" "$mem_n"
+assert ".sh: lookalike path IS a code write" "1" "$wr_n"
+# The real memory file (absolute path into the memory dir) still classifies.
+pipe_json "{\"file_path\":\"$TMP_MEMORY/patterns.md\"}" "$SCRIPTS/record-write.sh" >/dev/null
+mem_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("memory_updates",[])))')"
+assert ".sh: real memory-dir path IS a memory update" "1" "$mem_n"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 27: handoff written via the memory CLI (no afterFileEdit) satisfies the gate ===\n"
+# The documented write path is the CLI -- a shell command that never fires
+# afterFileEdit. The gate must fall back to the handoff file on disk
+# instead of looping to exhaustion.
+runner_verdict() {
+  local input="${1:-}"
+  [[ -z "$input" ]] && input='{}'
+  local out
+  out="$(printf '%s' "$input" | python3 "$SCRIPTS/hook_runner.py" stop)"
+  if printf '%s' "$out" | grep -q '"followup_message"'; then
+    echo "followup"
+  else
+    echo "allow"
+  fi
+}
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+printf '{"file_path":"src/api/auth.ts"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\nverify"}' \
+  | python3 "$SCRIPTS/hook_runner.py" subagentStart >/dev/null
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" subagentStop >/dev/null
+append_handoff "scenario 27 CLI-only handoff (runner)"
+assert "runner: CLI-only handoff satisfies the stop gate" "allow" "$(runner_verdict '{}')"
+# .sh parity.
+reset_state
+pipe_json '{}' "$SCRIPTS/seed-session.sh" >/dev/null
+pipe_json '{"file_path":"src/api/auth.ts"}' "$SCRIPTS/record-write.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\\nverify"}' \
+  "$SCRIPTS/record-subagent-start.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose"}' "$SCRIPTS/record-subagent-stop.sh" >/dev/null
+append_handoff "scenario 27 CLI-only handoff (.sh)"
+assert ".sh: CLI-only handoff satisfies the stop gate" "allow" "$(gate_verdict '{}')"
+
+# ---------------------------------------------------------------------------
+printf "\n=== scenario 28: correlation-id match is line-anchored (…-1 must not match …-10) ===\n"
+reset_state
+pipe_json '{}' "$SCRIPTS/seed-session.sh" >/dev/null
+pipe_json '{"file_path":"src/api/auth.ts"}' "$SCRIPTS/record-write.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\\nverify"}' \
+  "$SCRIPTS/record-subagent-start.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose"}' "$SCRIPTS/record-subagent-stop.sh" >/dev/null
+# Force the active task to <sid>-1 while the handoff only has <sid>-10.
+sid="$(python3 -c 'import json;print(json.load(open("'"$STATE_FILE"'"))["session_id"])')"
+python3 - "$STATE_FILE" <<'PYEOF'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+d = json.loads(p.read_text())
+d["task_seq"] = 1
+d["active_correlation_id"] = f"{d['session_id']}-1"
+p.write_text(json.dumps(d, indent=2))
+PYEOF
+cat >> "$TMP_MEMORY/session-handoff.md" <<EOF
+
+<!-- memory-entry:start -->
+---
+id: ${sid}-10-state
+correlation_id: ${sid}-10
+at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+kind: state
+status: done
+author: orchestrator
+summary: entry for a DIFFERENT task whose cid merely extends the active one
+---
+
+This entry belongs to task ${sid}-10, not ${sid}-1; the gate must not accept it.
+
+<!-- memory-entry:end -->
+EOF
+pipe_json "{\"file_path\":\"$TMP_MEMORY/session-handoff.md\"}" "$SCRIPTS/record-write.sh" >/dev/null
+assert ".sh: …-10 entry does not satisfy …-1 (anchored match)" "followup" "$(gate_verdict '{}')"
+assert "runner: …-10 entry does not satisfy …-1 (anchored match)" "followup" "$(runner_verdict '{}')"
+
+printf "\n=== scenario 29: late stop of a background readonly reviewer survives the task bump ===\n"
+# The DOCUMENTED happy path: bg-regression-runner is readonly+is_background.
+# Its subagentStop can arrive AFTER the stop gate allowed + bumped the task.
+# The bump must preserve the open call record, the late stop must release
+# the readonly flag, and the NEXT task's edits must produce NO violation
+# (pre-fix: the bump wiped the record, the slug stuck in
+# active_readonly_subagents, and every later task force-exhausted).
+cat > "$readonly_fixture/.cursor/agents/bg-watcher.md" <<EOF
+---
+schema_version: 2
+name: bg-watcher
+description: background readonly reviewer (bg-regression-runner stand-in)
+category: review
+protocol: strict
+readonly: true
+is_background: true
+model: inherit
+tags: [review]
+domains: [all]
+---
+
+Body content.
+EOF
+# --- runner path -----------------------------------------------------------
+reset_state
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" sessionStart >/dev/null
+# Write FIRST (before the bg reviewer opens), then satisfy the protocol.
+printf '{"file_path":"src/api/auth.ts"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\nverify"}' \
+  | python3 "$SCRIPTS/hook_runner.py" subagentStart >/dev/null
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" subagentStop >/dev/null
+append_handoff "scenario 29 runner bg readonly"
+# Launch the bg readonly reviewer; it stays OPEN across the gate.
+(cd "$readonly_fixture" && \
+  printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: bg-watcher\nwatch"}' \
+    | python3 "$SCRIPTS/hook_runner.py" subagentStart >/dev/null)
+assert "runner: gate allows + bumps with bg reviewer open" "allow" "$(runner_verdict '{}')"
+open_after_bump="$(python3 -c 'import json
+d=json.load(open("'"$STATE_FILE"'"))
+calls=[c for c in d.get("subagent_calls",[]) if not (c.get("stopped_at") or c.get("completed"))]
+print(",".join(c.get("slug") or "" for c in calls))')"
+assert "runner: open bg call record survives the bump" "bg-watcher" "$open_after_bump"
+# Late stop arrives AFTER the bump: must close the record + free the slug.
+printf '{}' | python3 "$SCRIPTS/hook_runner.py" subagentStop >/dev/null
+actives_after="$(python3 -c 'import json
+d=json.load(open("'"$STATE_FILE"'"))
+print(len(d.get("active_readonly_subagents") or []))')"
+assert "runner: late stop releases the readonly flag" "0" "$actives_after"
+# Next task's edit: a normal write, NO readonly violation.
+printf '{"file_path":"src/next_task.py"}' | python3 "$SCRIPTS/hook_runner.py" afterFileEdit >/dev/null
+viol_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("readonly_violations") or []))')"
+wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes") or []))')"
+assert "runner: next task's edit has NO readonly violation" "0" "$viol_n"
+assert "runner: next task's edit recorded as a write" "1" "$wr_n"
+# --- .sh path --------------------------------------------------------------
+reset_state
+pipe_json '{}' "$SCRIPTS/seed-session.sh" >/dev/null
+pipe_json '{"file_path":"src/api/auth.ts"}' "$SCRIPTS/record-write.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose","prompt":"AGENT: qa-verifier\\nverify"}' \
+  "$SCRIPTS/record-subagent-start.sh" >/dev/null
+pipe_json '{"subagent_type":"generalPurpose"}' "$SCRIPTS/record-subagent-stop.sh" >/dev/null
+append_handoff "scenario 29 sh bg readonly"
+(cd "$readonly_fixture" && \
+  printf '%s' '{"subagent_type":"generalPurpose","prompt":"AGENT: bg-watcher\nwatch"}' \
+    | bash "$SCRIPTS/record-subagent-start.sh" >/dev/null)
+assert ".sh: gate allows + bumps with bg reviewer open" "allow" "$(gate_verdict '{}')"
+pipe_json '{"subagent_type":"generalPurpose"}' "$SCRIPTS/record-subagent-stop.sh" >/dev/null
+actives_after="$(python3 -c 'import json
+d=json.load(open("'"$STATE_FILE"'"))
+print(len(d.get("active_readonly_subagents") or []))')"
+assert ".sh: late stop releases the readonly flag" "0" "$actives_after"
+pipe_json '{"file_path":"src/next_task.py"}' "$SCRIPTS/record-write.sh" >/dev/null
+viol_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("readonly_violations") or []))')"
+wr_n="$(python3 -c 'import json;d=json.load(open("'"$STATE_FILE"'"));print(len(d.get("writes") or []))')"
+assert ".sh: next task's edit has NO readonly violation" "0" "$viol_n"
+assert ".sh: next task's edit recorded as a write" "1" "$wr_n"
 
 printf "\n=== summary ===\n  passed: %s\n  failed: %s\n" "$pass" "$fail"
 if (( fail > 0 )); then

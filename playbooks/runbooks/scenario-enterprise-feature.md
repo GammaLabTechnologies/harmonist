@@ -1,5 +1,11 @@
 # 🏢 Runbook: Enterprise Feature Development
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Mode**: NEXUS-Sprint | **Duration**: 6-12 weeks | **Agents**: 20-30
 
 ---
@@ -15,14 +21,14 @@ You're adding a major feature to an existing enterprise product. Compliance, sec
 |-------|------|
 | Agents Orchestrator | Pipeline controller |
 | Project Shepherd | Cross-functional coordination |
-| Senior Project Manager | Spec-to-task conversion |
+| Laravel/Livewire Project Manager | Spec-to-task conversion |
 | Sprint Prioritizer | Backlog management |
 | UX Architect | Technical foundation |
 | UX Researcher | User validation |
 | UI Designer | Component design |
 | Frontend Developer | UI implementation |
 | Backend Architect | API and system integration |
-| Senior Developer | Complex implementation |
+| Laravel/Livewire Specialist | Complex implementation |
 | DevOps Automator | CI/CD and deployment |
 | Evidence Collector | Visual QA |
 | API Tester | Endpoint validation |
@@ -34,7 +40,7 @@ You're adding a major feature to an existing enterprise product. Compliance, sec
 |-------|------|
 | Legal Compliance Checker | Regulatory compliance |
 | Brand Guardian | Brand consistency |
-| Finance Tracker | Budget tracking |
+| FP&A Analyst | Budget tracking |
 | Executive Summary Generator | Stakeholder reporting |
 
 ### Quality Assurance
@@ -53,8 +59,8 @@ Week 1: Stakeholder Alignment
 ├── Project Shepherd → Stakeholder analysis + communication plan
 ├── UX Researcher → User research on feature need
 ├── Legal Compliance Checker → Compliance requirements scan
-├── Senior Project Manager → Spec-to-task conversion
-└── Finance Tracker → Budget framework
+├── Laravel/Livewire Project Manager → Spec-to-task conversion
+└── FP&A Analyst → Budget framework
 
 Week 2: Technical Architecture
 ├── UX Architect → UX foundation + component architecture
@@ -82,7 +88,7 @@ Sprint 1-3 (Week 4-9):
 ├── Agents Orchestrator → Dev↔QA loop management
 ├── Frontend Developer → UI implementation (task by task)
 ├── Backend Architect → API implementation (task by task)
-├── Senior Developer → Complex/premium features
+├── Laravel/Livewire Specialist → Complex/premium features
 ├── Evidence Collector → QA every task (screenshots)
 ├── API Tester → Endpoint validation every API task
 ├── Experiment Tracker → A/B test setup for key features
@@ -90,7 +96,7 @@ Sprint 1-3 (Week 4-9):
 ├── Bi-weekly:
 │   ├── Project Shepherd → Stakeholder status update
 │   ├── Executive Summary Generator → Executive briefing
-│   └── Finance Tracker → Budget tracking
+│   └── FP&A Analyst → Budget tracking
 │
 └── Sprint Reviews with stakeholder demos
 ```
@@ -132,7 +138,7 @@ Week 11: Final Judgment
 | Product team | Weekly | Project Shepherd | Status report |
 | Engineering team | Daily | Agents Orchestrator | Pipeline status |
 | Compliance team | Monthly | Legal Compliance Checker | Compliance status |
-| Finance | Monthly | Finance Tracker | Budget report |
+| Finance | Monthly | FP&A Analyst | Budget report |
 
 ## Quality Requirements
 

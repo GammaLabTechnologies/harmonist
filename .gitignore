@@ -16,3 +16,18 @@ telemetry/
 # Private maintainer notes. The public repo ships only the canonical
 # English documentation.
 README.ru.md
+
+# harmonist: memory privacy
+.cursor/memory/*.md
+!.cursor/memory/*.shared.md
+!.cursor/memory/README.md
+!.cursor/memory/SCHEMA.md
+.cursor/hooks/.state/
+.cursor/hooks/config.json.local
+.cursor/.integration-snapshots/
+.cursor/repomap/*.db
+
+# Python bytecode (the stdlib toolchain runs in-repo during dev/tests;
+# compiled caches never belong in the pack tree or MANIFEST)
+__pycache__/
+*.pyc

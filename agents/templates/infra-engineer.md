@@ -1,8 +1,9 @@
 ---
+schema_version: 2
 name: infra-engineer
 description: Implements Docker, CI/CD, deployment, migrations, secrets management, and infrastructure configuration. Use for deployment and infrastructure changes.
 category: engineering
-protocol: strict
+protocol: persona
 readonly: false
 is_background: false
 model: claude-opus-4-8

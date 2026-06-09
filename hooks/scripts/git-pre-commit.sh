@@ -30,15 +30,15 @@ CFG_JSON="$(read_cfg)"
 STAGED="$(git -c core.quotepath=false diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)"
 [[ -z "$STAGED" ]] && exit 0
 
-# review-worthy = NOT skipped AND NOT trivial (mirrors gate-stop.sh). If neither
-# pattern set loads (broken config) treat every staged file as review-worthy
-# (fail closed) rather than silently allowing all code.
+# review-worthy = NOT skipped AND NOT trivial (mirrors gate-stop.sh).
+# Note on broken/empty config: with no patterns loaded, nothing is filtered
+# out, so EVERY staged file is treated as review-worthy -- the fail-closed
+# behaviour falls out of the filter structure itself (no special-casing).
 REVIEW_WORTHY="$(STAGED_LIST="$STAGED" CFG_JSON="$CFG_JSON" python3 - <<'PY'
 import json, os, re
 cfg = json.loads(os.environ["CFG_JSON"])
 skip = [re.compile(p) for p in cfg.get("skip_path_patterns", [])]
 trivial = [re.compile(p) for p in cfg.get("trivial_path_patterns", [])]
-have_patterns = bool(skip or trivial)
 out = []
 for line in os.environ.get("STAGED_LIST", "").splitlines():
     f = line.strip()
@@ -48,10 +48,7 @@ for line in os.environ.get("STAGED_LIST", "").splitlines():
         continue
     if any(rx.search(f) for rx in trivial):
         continue
-    if not have_patterns:
-        out.append(f)  # fail closed
-    else:
-        out.append(f)
+    out.append(f)
 print("\n".join(out))
 PY
 )"

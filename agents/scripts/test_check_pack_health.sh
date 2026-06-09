@@ -120,9 +120,9 @@ if printf '%s' "$json_out" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['summary']['failed'] == 0, d['summary']
-assert d['summary']['total'] == 18, d['summary']
+assert d['summary']['total'] == 19, d['summary']
 " >/dev/null 2>&1; then
-  ok "JSON parses; 0 failures; 18 checks"
+  ok "JSON parses; 0 failures; 19 checks"
 else
   ko "JSON parse or counts wrong"
 fi
@@ -180,9 +180,10 @@ assert_exit "stale-claim pack exits 1" "1" "$rc"
 printf '%s' "$out" | grep -qF "count-claims" && ok "count-claims check fired" || ko "count-claims not flagged"
 printf '%s' "$out" | grep -qF "999" && ok "bad count (999) reported" || ko "bad count not shown in failure"
 
-# And a bogus per-category count in the AGENTS.md table.
+# And a bogus per-category count in the AGENTS template table.
 m7="$TMP/pack7"; mirror "$m7"
-python3 - "$m7/AGENTS.md" <<'PY'
+M7_TPL="$m7/AGENTS.template.md"; [[ -f "$M7_TPL" ]] || M7_TPL="$m7/AGENTS.md"
+python3 - "$M7_TPL" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
 text = p.read_text()

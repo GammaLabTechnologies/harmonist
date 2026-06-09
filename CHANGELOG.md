@@ -13,6 +13,79 @@ what the upgrade tool is allowed to touch.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-06-10
+
+Maintenance release: install-UX overhaul plus reliability hardening across
+hooks, memory, and the catalog. Headline fix — dropping the pack into a
+workspace no longer risks Cursor treating the orchestrator template as a
+live rule and demanding enforcement machinery that isn't installed yet.
+
+### Install UX
+
+- **`AGENTS.md` (pack root) renamed to `AGENTS.template.md`** with an
+  unmissable preamble: it is a TEMPLATE, not an active rule for the pack
+  folder; AI agents asked to "install" must follow `integration-prompt.md`
+  instead. The file generated in the USER's project keeps the name
+  `AGENTS.md`. All pack-owned marker blocks preserved verbatim.
+- **`<PACK_DIR>` convention.** The pack folder may have any name; docs and
+  the integration prompt now detect the actual folder name and use
+  `<PACK_DIR>/` placeholders (examples assume `harmonist/`). Literal
+  `harmonist/` paths inside pack-owned blocks are substituted by the merge
+  tooling at integration/upgrade time.
+- **AI entry points.** `README.md` opens with a self-routing block for AI
+  agents; `integration-prompt.md` opens with "you are the installer —
+  execute the steps below".
+- **Integration prompt corrections**: strict-install wording fixed (6
+  strict agents copied incl. `wcag-a11y-gate`, plus `bg-regression-runner`
+  seeded in Step 7 → 7 strict files post-install); removed the redundant
+  hand-edit instruction for `bg-regression-runner` commands (raced the
+  auto-seeding); `.cursor/memory/` file list now includes `migrations.py`;
+  added a warning to delete the pack's CI configs when the pack was copied
+  into a project root; added the `pentest` controlled domain.
+- **`GUIDE_EN.md` manual path fixed** — the old 4-step manual install
+  produced an unenforced setup (no hooks, rules, or `.gitignore`
+  hardening); it now routes through `integrate.py` + `verify_integration.py`.
+
+### Hooks reliability
+
+- State-file **locking** around read-modify-write cycles, **stop-gate
+  handoff fallback** hardening, and further **HITL dangerous-command
+  pattern** hardening across both hook runtimes.
+
+### Memory robustness
+
+- Pinned **UTF-8** on all reads/writes, cross-platform **locking**, and
+  collision-safe **rotation ids**.
+
+### Catalog
+
+- **`wcag-a11y-gate` is now installed by `upgrade.py`** as a pack-owned
+  strict reviewer (post-install strict files: `repo-scout` + 5 reviewers +
+  seeded `bg-regression-runner` = 7).
+- Strict-slug unification, the orchestrator entry marked strict, and a new
+  controlled domain **`pentest`** for the authorized offensive-security
+  personas.
+
+### Docs & playbooks
+
+- **NEXUS tree marked as legacy**: standardized banners on `QUICKSTART.md`,
+  `nexus-strategy.md`, all 7 phase playbooks, all 4 scenario runbooks, and
+  both coordination docs — display names are not slugs; dispatch follows
+  `AGENT: <slug>` markers and the project `AGENTS.md` + `agents/index.json`.
+- Phantom agents replaced with real catalog slugs: Senior Developer →
+  `engineering-laravel-livewire-specialist`, Senior Project Manager →
+  `project-management-laravel-pm`, Finance Tracker → `finance-fpa-analyst`,
+  Data Consolidation Agent → `sales-pipeline-analyst`.
+- `playbooks/EXECUTIVE-BRIEF.md`: file tree re-rooted at `playbooks/`
+  (was `strategy/`), "9 Divisions" branding corrected to the actual 16
+  categories, invented-looking statistics toned down to qualitative claims.
+- `MANIFEST.sha256` coverage claim corrected: all runtime-shipped content
+  (`agents/`, `hooks/`, `memory/`, `playbooks/`, root docs) is hashed; CI
+  configs and repo metadata are pack-repo-only and excluded. CI configs
+  now carry explicit "pack-repo CI — delete in host projects" headers.
+- `onboard.py` (teammate walkthrough) documented in the README key-scripts
+  table.
+
 ## [1.1.0] — 2026-06-08
 
 ### Reliability & security hardening (full-audit pass)

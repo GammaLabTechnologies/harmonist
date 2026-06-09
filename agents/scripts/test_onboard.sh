@@ -5,6 +5,8 @@
 set -euo pipefail
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 ONB="$PACK/agents/scripts/onboard.py"
 UP="$PACK/agents/scripts/upgrade.py"
 TMP="$(mktemp -d)"
@@ -35,7 +37,7 @@ printf '%s' "$out" | /usr/bin/grep -q "NOT look integrated" && ok "emits not-int
 printf "\n=== 2: fully integrated project ===\n"
 proj="$TMP/proj"
 mkdir -p "$proj"
-cp "$PACK/AGENTS.md" "$proj/AGENTS.md"
+cp "$PACK_TPL" "$proj/AGENTS.md"
 python3 "$UP" --project "$proj" --pack "$PACK" --apply >/dev/null 2>&1 || true
 
 set +e
@@ -86,7 +88,7 @@ fi
 printf "\n=== 5: partial integration ===\n"
 partial="$TMP/partial"
 mkdir -p "$partial/.cursor"
-cp "$PACK/AGENTS.md" "$partial/AGENTS.md"
+cp "$PACK_TPL" "$partial/AGENTS.md"
 # Intentionally omit .cursor/agents, hooks, memory, rules.
 set +e
 out="$(python3 "$ONB" --project "$partial" --check 2>&1)"

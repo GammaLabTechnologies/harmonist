@@ -6,6 +6,8 @@
 set -euo pipefail
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 INT="$PACK/agents/scripts/integrate.py"
 SCRIPT="$PACK/agents/scripts/install_extras.py"
 TMP="$(mktemp -d)"
@@ -212,7 +214,7 @@ cp -R "$PACK/memory"    "$fakepack/memory"
 cp -R "$PACK/hooks"     "$fakepack/hooks"
 cp    "$PACK/VERSION"   "$fakepack/"
 cp    "$PACK/MANIFEST.sha256" "$fakepack/"
-cp    "$PACK/AGENTS.md" "$fakepack/"
+cp    "$PACK_TPL" "$fakepack/"
 # Mutate one source — sha will no longer match MANIFEST.
 echo "<!-- tampered -->" >> "$fakepack/agents/design/design-brand-guardian.md"
 # Fresh project so the file isn't already installed.

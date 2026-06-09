@@ -10,6 +10,8 @@ set -euo pipefail
 unset AGENT_PACK_HOOKS_STATE AGENT_PACK_MEMORY_CLI 2>/dev/null || true
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 UPGRADE="$PACK/agents/scripts/upgrade.py"
 REPORT="$PACK/agents/scripts/report_usage.py"
 TMP="$(mktemp -d)"
@@ -22,7 +24,7 @@ ko() { printf "  FAIL  %s\n" "$1"; fail=$((fail + 1)); }
 
 proj="$TMP/proj"
 mkdir -p "$proj"
-cp "$PACK/AGENTS.md" "$proj/AGENTS.md"
+cp "$PACK_TPL" "$proj/AGENTS.md"
 python3 "$UPGRADE" --project "$proj" --pack "$PACK" --apply >/dev/null || true
 
 # The upgrade installed all pack-owned files, including hooks + memory.
@@ -171,7 +173,7 @@ fi
 printf "\n=== 7: telemetry_enabled=false disables writes ===\n"
 proj2="$TMP/proj2"
 mkdir -p "$proj2"
-cp "$PACK/AGENTS.md" "$proj2/AGENTS.md"
+cp "$PACK_TPL" "$proj2/AGENTS.md"
 python3 "$UPGRADE" --project "$proj2" --pack "$PACK" --apply >/dev/null || true
 mkdir -p "$proj2/.cursor/hooks"
 echo '{"telemetry_enabled": false}' > "$proj2/.cursor/hooks/config.json"

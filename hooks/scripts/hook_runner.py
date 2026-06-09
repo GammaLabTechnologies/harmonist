@@ -39,14 +39,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -96,21 +128,27 @@ DEFAULT_DANGEROUS_COMMAND_PATTERNS = [
     # --recursive/--force/--no-preserve-root, in ANY order) targeting an
     # absolute path, home, wildcard, or '.'. Matches the catastrophic forms
     # the old single-dash pattern missed: `rm -rf /usr`, `rm --recursive
-    # --force /`, `rm -rf --no-preserve-root /`.
-    r"(?:^|[\s;&|(])rm\s+(?:-[a-zA-Z]*[rf][a-zA-Z]*|--recursive|--force|--no-preserve-root)(?:\s+(?:-[a-zA-Z-]+|--[a-zA-Z-]+))*\s+(?:/(?:\s|$|/|\*|[a-zA-Z])|~|\$HOME|\*|\.(?:\s|$|/))",
+    # --force /`, `rm -rf --no-preserve-root /` -- and tolerates a quoted
+    # target (`rm -rf "$HOME"`, `rm -rf "/"`).
+    r"(?:^|[\s;&|(])rm\s+(?:-[a-zA-Z]*[rf][a-zA-Z]*|--recursive|--force|--no-preserve-root)(?:\s+(?:-[a-zA-Z-]+|--[a-zA-Z-]+))*\s+[\"']?(?:/(?:\s|$|/|\*|[a-zA-Z\"'])|~|\$HOME|\*|\.(?:\s|$|/))",
     r"\bgit\s+push\b[^\n]*(?:--force(?!-with-lease)|\s-f\b)",
     r"\bgit\s+reset\s+--hard\b",
     r"\bgit\s+clean\s+-[a-zA-Z]*f",
-    # dd reading or writing a raw device, regardless of if=/of= order:
-    # `dd if=/dev/zero of=/dev/sda` AND `dd of=/dev/sda if=/dev/zero`.
-    r"\bdd\s+[^\n]*\b(?:if|of)=/",
+    # dd writing to a raw device (optionally quoted): `dd if=x of=/dev/sda`,
+    # `dd of=/dev/sda if=/dev/zero`. Restricted to of=/dev/... -- a dd that
+    # merely READS a device or writes a regular file (`of=/tmp/img`) is a
+    # routine backup/restore, not a disk wipe. `/+` tolerates repeated
+    # slashes (`of=//dev/sda` resolves to the same device node).
+    r"\bdd\s+[^\n]*\bof=[\"']?/+dev/",
     r"\bmkfs[.\s]",
     r":\(\)\s*\{\s*:\s*\|\s*:?\s*&\s*\}\s*;\s*:",
     r"\b(?:shutdown|reboot|halt|poweroff)\b",
     r"\bchmod\s+-R\s+0?777\b",
     r">\s*/dev/(?:sd|nvme|disk|hd)",
     r"\b(?:curl|wget)\b[^|\n]*\|\s*(?:sudo\s+)?(?:ba|z|k)?sh\b",
-    r"\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE|SCHEMA)\b",
+    # Case-insensitive: `drop table users` is exactly as destructive as
+    # `DROP TABLE users`.
+    r"(?i)\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE|SCHEMA)\b",
 ]
 
 
@@ -216,8 +254,17 @@ def read_cfg() -> dict:
     if CFG_FILE.exists():
         try:
             cfg.update(json.loads(CFG_FILE.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as e:
+            # A malformed config silently falling back to defaults makes the
+            # operator believe their overrides are active. Warn loudly (once
+            # per hook invocation) on stderr and in the activity log.
+            try:
+                sys.stderr.write(
+                    f"hooks: WARNING: {CFG_FILE} is malformed JSON "
+                    f"({e.__class__.__name__}); using default config\n")
+            except Exception:
+                pass
+            log_event(f"config: WARNING {CFG_FILE} is malformed JSON; using defaults")
     return cfg
 
 
@@ -287,11 +334,25 @@ def reset_state() -> dict:
 # serialization, two concurrent processes can both read the same state and the
 # last writer wins -- silently dropping a recorded write (the stop gate then
 # under-counts and can fail OPEN) or letting two subagentStart calls both clear
-# the concurrency cap. We take an OS advisory lock on a sidecar <state>.lock for
-# the whole phase so the read-modify-write is atomic across processes.
-# Best-effort: if locking is unavailable we proceed (single-process behaviour is
-# unchanged). os.replace alone gives an atomic file *swap*, not an atomic
-# transaction across the read.
+# the concurrency cap. We take an OS advisory lock on a sidecar <state>.lock so
+# the read-modify-write is atomic across processes.
+#
+# Acquisition is NON-BLOCKING with a bounded retry (~10s total) on every
+# platform: a blocking LOCK_EX could hang a hook forever behind a crashed or
+# slow peer, which freezes Cursor's whole tool-call pipeline. On timeout we
+# log a warning and proceed UNLOCKED (best-effort: single-process behaviour is
+# unchanged; worst case we are back to last-writer-wins for that one phase).
+# os.replace alone gives an atomic file *swap*, not an atomic transaction
+# across the read.
+#
+# IMPORTANT for phase authors: never run subprocesses while holding this lock.
+# Acquire -> read/copy state -> release -> do slow work -> re-acquire ->
+# mutate/save -> release. phase_session_start and phase_stop follow this
+# pattern; the quick recorder phases hold the lock for their whole (fast)
+# read-modify-write.
+
+_LOCK_TIMEOUT_SECONDS = 10.0
+_LOCK_RETRY_SLEEP = 0.05
 
 
 def _acquire_state_lock():
@@ -299,24 +360,44 @@ def _acquire_state_lock():
     lock_path = path.parent / (path.name + ".lock")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(lock_path, "a+")
+        fh = open(lock_path, "a+", encoding="utf-8")
     except Exception:
         return None
+    acquired = False
+    deadline = time.time() + _LOCK_TIMEOUT_SECONDS
     try:
         if os.name == "nt":
             import msvcrt
             fh.seek(0)
-            for _ in range(600):  # spin up to ~30s; normally instant
+            while True:
                 try:
                     msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    acquired = True
                     break
                 except OSError:
-                    time.sleep(0.05)
+                    if time.time() >= deadline:
+                        break
+                    time.sleep(_LOCK_RETRY_SLEEP)
         else:
             import fcntl
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            while True:
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    acquired = True
+                    break
+                except OSError:
+                    if time.time() >= deadline:
+                        break
+                    time.sleep(_LOCK_RETRY_SLEEP)
     except Exception:
-        pass
+        # Locking primitive unavailable (exotic FS / platform): proceed
+        # unlocked, same as before.
+        return fh
+    if not acquired:
+        log_event(
+            f"state lock: TIMEOUT after {_LOCK_TIMEOUT_SECONDS:.0f}s waiting for "
+            f"{lock_path.name}; proceeding UNLOCKED (concurrent update may be lost)"
+        )
     return fh
 
 
@@ -343,11 +424,35 @@ def _release_state_lock(fh) -> None:
             pass
 
 
+# Cap activity.log growth: once it exceeds _LOG_MAX_BYTES, keep only the most
+# recent half (trimmed to a line boundary). Long-lived projects otherwise
+# accumulate an unbounded log that slows every append and bloats backups.
+_LOG_MAX_BYTES = 1_048_576  # 1 MiB
+
+
+def _rotate_log_if_needed() -> None:
+    try:
+        if not LOG_FILE.exists() or LOG_FILE.stat().st_size <= _LOG_MAX_BYTES:
+            return
+        data = LOG_FILE.read_bytes()
+        keep = data[len(data) // 2:]
+        nl = keep.find(b"\n")
+        if nl != -1:
+            keep = keep[nl + 1:]
+        tmp = tempfile.NamedTemporaryFile("wb", delete=False, dir=str(LOG_FILE.parent))
+        tmp.write(b"[log rotated: older half discarded]\n" + keep)
+        tmp.close()
+        os.replace(tmp.name, LOG_FILE)
+    except Exception:
+        pass
+
+
 def log_event(msg: str) -> None:
     try:
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _rotate_log_if_needed()
         ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        with LOG_FILE.open("a") as fh:
+        with LOG_FILE.open("a", encoding="utf-8") as fh:
             fh.write(f"[{ts}] {msg}\n")
     except Exception:
         pass
@@ -433,6 +538,60 @@ def repomap_cli_path() -> "Path | None":
     if pack_rm.exists():
         return pack_rm
     return None
+
+
+def _discover_pack_dir() -> "Path | None":
+    """Locate the pack checkout by SIGNATURE (a directory containing
+    agents/scripts/project_context.py) instead of hardcoding the default
+    clone name `harmonist` -- users vendor the pack under any name.
+
+    Search order: the hooks' own parent (pack-development mode / pack
+    sources next to .cursor), then the project root itself, then each
+    non-hidden immediate subdirectory of the project root (CWD and the
+    post-integration `<project>/.cursor/..` root)."""
+    sig = ("agents", "scripts", "project_context.py")
+
+    def _has_sig(d: Path) -> bool:
+        try:
+            return d.joinpath(*sig).exists()
+        except OSError:
+            return False
+
+    roots: list[Path] = []
+    try:
+        roots.append(Path.cwd())
+    except OSError:
+        pass
+    roots.append(HOOKS_DIR.parent.parent)  # <project root> post-integration
+    seen: set = set()
+    for root in [HOOKS_DIR.parent] + roots:
+        try:
+            rroot = root.resolve()
+        except OSError:
+            continue
+        if rroot in seen or not rroot.is_dir():
+            continue
+        seen.add(rroot)
+        if _has_sig(rroot):
+            return rroot
+    for root in roots:
+        try:
+            children = sorted(p for p in root.iterdir() if p.is_dir())
+        except OSError:
+            continue
+        for child in children:
+            if child.name.startswith("."):
+                continue
+            if _has_sig(child):
+                return child
+    return None
+
+
+def _pack_hint() -> str:
+    """Pack-dir name for human guidance strings. Generic placeholder when
+    no checkout is discoverable (messages must not hardcode `harmonist`)."""
+    d = _discover_pack_dir()
+    return d.name if d is not None else "<pack-dir>"
 
 
 def _strip_dot_slash(s: str) -> str:
@@ -556,6 +715,97 @@ def _is_skipped_path(path: str, cfg: dict) -> bool:
     return False
 
 
+def _normalize_slashes(p: str) -> str:
+    p = p.replace("\\", "/")
+    while p.startswith("./"):
+        p = p[2:]
+    return p
+
+
+def _is_memory_update_path(path: str, cfg: dict) -> bool:
+    """True only when `path` is one of the configured memory FILES in the
+    memory DIRECTORY -- not merely any file that shares a basename.
+
+    A bare basename match (the old behaviour) cut both ways: a write to
+    `frontend/patterns.md` silently bypassed the review gate (classified as
+    a memory update), and a write to any random `session-handoff.md` could
+    satisfy the stop gate's handoff requirement. We accept a path only when
+    the basename matches AND the file lives in the memory dir: the exact
+    configured relative path (default `.cursor/memory/...`), an absolute
+    path ending in it, or a file whose parent directory resolves to the
+    discovered memory dir (the directory containing memory.py -- honours
+    $AGENT_PACK_MEMORY_CLI and the post-integration layout)."""
+    p = _normalize_slashes(path)
+    base = p.split("/")[-1]
+    mem_paths = [str(m) for m in cfg.get("memory_paths", [])]
+    basenames = {_normalize_slashes(m).rstrip("/").split("/")[-1] for m in mem_paths}
+    if base not in basenames:
+        return False
+    for m in mem_paths:
+        mm = _normalize_slashes(m)
+        if p == mm or p.endswith("/" + mm):
+            return True
+    try:
+        parent = Path(path).resolve().parent
+    except Exception:
+        return False
+    cli = memory_cli_path()
+    if cli is not None:
+        try:
+            if parent == cli.resolve().parent:
+                return True
+        except Exception:
+            pass
+    for m in mem_paths:
+        mp = Path(m)
+        cand = mp if mp.is_absolute() else (Path.cwd() / mp)
+        try:
+            if parent == cand.resolve().parent:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _locate_handoff_file(memory_updates: list, cfg: dict) -> "Path | None":
+    """Find session-handoff.md on disk. Recorded memory_updates win; when
+    absent we fall back to the file next to the memory CLI, then to the
+    configured memory path resolved against the project root. The fallback
+    matters because the DOCUMENTED write path is the memory.py CLI -- a shell
+    command that never fires afterFileEdit, so memory_updates is legitimately
+    empty in a real session."""
+    candidates: list[Path] = []
+    for e in memory_updates:
+        p = str(e.get("path", ""))
+        if p.endswith("session-handoff.md"):
+            candidates.append(Path(p))
+    cli = memory_cli_path()
+    if cli is not None:
+        candidates.append(cli.parent / "session-handoff.md")
+    for m in cfg.get("memory_paths", []):
+        mp = Path(str(m))
+        if mp.name == "session-handoff.md":
+            candidates.append(mp if mp.is_absolute() else (Path.cwd() / mp))
+    for c in candidates:
+        try:
+            if c.exists():
+                return c
+        except Exception:
+            continue
+    return None
+
+
+def _handoff_has_cid(content: str, active_cid: str) -> bool:
+    """Line-anchored correlation-id match. A bare substring check let
+    `...-1` match inside `...-10` and pass the gate on the wrong task."""
+    if not active_cid:
+        return True
+    return re.search(
+        rf"^correlation_id:\s*{re.escape(active_cid)}\s*$",
+        content, re.MULTILINE,
+    ) is not None
+
+
 def _extract_slug_from_prompt(prompt: str) -> str:
     """AGENT: <slug> marker lives on the first non-empty line, but we
     also accept <!-- AGENT: <slug> --> as a fallback so a future
@@ -626,41 +876,42 @@ def _detect_protocol_skip(input_json: dict) -> "str | None":
     return None
 
 
-def _load_agent_catalog() -> dict[str, dict]:
-    """Best-effort lookup of installed .cursor/agents/*.md files for
-    capability scoping (readonly flag etc.). Returns a dict keyed by
-    slug (filename stem)."""
-    cwd = Path.cwd()
+def _agent_is_readonly(slug: str) -> bool:
+    """Targeted lookup of one agent's `readonly` frontmatter flag.
+
+    Called once per subagentStart (rare) instead of loading the whole
+    catalog on every file edit. Candidate locations: the project's
+    `.cursor/agents/` relative to CWD, and `.cursor/agents/` next to the
+    hooks dir (HOOKS_DIR.parent is `.cursor` post-integration -- the old
+    second candidate resolved to the dead path `.cursor/.cursor/agents`).
+    In pack-development mode the latter resolves to the pack's `agents/`
+    source tree, which carries the same frontmatter."""
+    if not slug:
+        return False
     cand_dirs = [
-        cwd / ".cursor" / "agents",
-        HOOKS_DIR.parent / ".cursor" / "agents",
+        Path.cwd() / ".cursor" / "agents",
+        HOOKS_DIR.parent / "agents",
     ]
-    catalog: dict[str, dict] = {}
     for d in cand_dirs:
         if not d.exists():
             continue
-        for md in d.rglob("*.md"):
-            try:
-                text = md.read_text(encoding="utf-8", errors="replace")
-            except Exception:
-                continue
-            fm = {}
-            m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
-            if not m:
-                continue
-            for line in m.group(1).splitlines():
-                mm = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$", line)
-                if not mm:
-                    continue
-                key, val = mm.group(1), mm.group(2).strip()
-                if val.lower() == "true":
-                    fm[key] = True
-                elif val.lower() == "false":
-                    fm[key] = False
-                else:
-                    fm[key] = val.strip("'\"")
-            catalog[md.stem] = fm
-    return catalog
+        agent_file = d / f"{slug}.md"
+        if not agent_file.exists():
+            agent_file = next(iter(d.rglob(f"{slug}.md")), None)
+        if agent_file is None:
+            continue
+        try:
+            text = agent_file.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+        if not m:
+            continue
+        for line in m.group(1).splitlines():
+            if re.match(r"^readonly:\s*(true|True|yes)\s*$", line):
+                return True
+        return False
+    return False
 
 
 # --------------------------------------------------------------------------- phases
@@ -669,45 +920,55 @@ def _load_agent_catalog() -> dict[str, dict]:
 def phase_session_start(input_json: dict) -> int:
     cfg = read_cfg()
 
-    # Pre-reset: read incidents.json for the protocol-exhausted banner.
-    incidents_banner = ""
+    # --- Locked section: incidents + state reset. Everything below that
+    # runs subprocesses (repomap status, memory.py latest, project_context)
+    # happens AFTER the lock is released -- holding it through subprocess
+    # timeouts (up to ~45s combined) would stall every concurrent hook.
+    lock = _acquire_state_lock()
     try:
-        if INCIDENTS_FILE.exists():
-            data = json.loads(INCIDENTS_FILE.read_text(encoding="utf-8"))
-            incidents = data.get("incidents") or []
-            unsurfaced = [i for i in incidents if not i.get("surfaced_at")]
-            if unsurfaced:
-                now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                lines = [
-                    "",
-                    "!!  PROTOCOL-EXHAUSTED incident(s) from previous session(s):",
-                ]
-                for inc in unsurfaced[-3:]:
-                    cid = inc.get("correlation_id", "?")
-                    missing = inc.get("missing", [])[:2]
-                    writes = inc.get("writes", [])[:3]
-                    lines.append(f"    - cid={cid}  writes={writes}  missing={missing}")
-                lines.append(
-                    "    These tasks were force-closed after the gate retried\n"
-                    "    loop_limit times without protocol satisfaction. Writes may\n"
-                    "    be in an inconsistent state (no reviewer, no handoff entry).\n"
-                    "    Investigate the listed correlation_id(s) before starting new\n"
-                    "    code changes. Full log: .cursor/hooks/.state/activity.log\n"
-                )
-                incidents_banner = "\n".join(lines)
-                for inc in incidents:
-                    inc.setdefault("surfaced_at", now)
-                tmp = tempfile.NamedTemporaryFile("w", delete=False,
-                                                  dir=str(INCIDENTS_FILE.parent),
-                                                  encoding="utf-8")
-                json.dump(data, tmp, indent=2)
-                tmp.close()
-                os.replace(tmp.name, INCIDENTS_FILE)
-    except Exception:
+        # Pre-reset: read incidents.json for the protocol-exhausted banner.
         incidents_banner = ""
+        try:
+            if INCIDENTS_FILE.exists():
+                data = json.loads(INCIDENTS_FILE.read_text(encoding="utf-8"))
+                incidents = data.get("incidents") or []
+                unsurfaced = [i for i in incidents if not i.get("surfaced_at")]
+                if unsurfaced:
+                    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                    lines = [
+                        "",
+                        "!!  PROTOCOL-EXHAUSTED incident(s) from previous session(s):",
+                    ]
+                    for inc in unsurfaced[-3:]:
+                        cid = inc.get("correlation_id", "?")
+                        missing = inc.get("missing", [])[:2]
+                        writes = inc.get("writes", [])[:3]
+                        lines.append(f"    - cid={cid}  writes={writes}  missing={missing}")
+                    lines.append(
+                        "    These tasks were force-closed after the gate retried\n"
+                        "    loop_limit times without protocol satisfaction. Writes may\n"
+                        "    be in an inconsistent state (no reviewer, no handoff entry).\n"
+                        "    Investigate the listed correlation_id(s) before starting new\n"
+                        "    code changes. Full log: .cursor/hooks/.state/activity.log\n"
+                    )
+                    incidents_banner = "\n".join(lines)
+                    for inc in incidents:
+                        inc.setdefault("surfaced_at", now)
+                    tmp = tempfile.NamedTemporaryFile("w", delete=False,
+                                                      dir=str(INCIDENTS_FILE.parent),
+                                                      encoding="utf-8")
+                    json.dump(data, tmp, indent=2)
+                    tmp.close()
+                    os.replace(tmp.name, INCIDENTS_FILE)
+        except Exception:
+            incidents_banner = ""
 
-    # Reset session state.
-    state = reset_state()
+        # Reset session state.
+        state = reset_state()
+        active_cid = state.get("active_correlation_id", "unknown")
+    finally:
+        _release_state_lock(lock)
+
     log_event("sessionStart: state reset")
     bump_telemetry("summaries.sessions", cfg=cfg)
 
@@ -782,12 +1043,16 @@ def phase_session_start(input_json: dict) -> int:
         except Exception:
             pass
 
-    # Project context preamble.
+    # Project context preamble. The pack dir is discovered by signature
+    # (not the hardcoded clone name `harmonist`); see _discover_pack_dir.
     project_context = ""
+    pack_dir = _discover_pack_dir()
+    pack_hint = pack_dir.name if pack_dir is not None else "<pack-dir>"
     pc_candidates = [
         HOOKS_DIR.parent / "agents" / "scripts" / "project_context.py",
-        HOOKS_DIR.parent.parent / "harmonist" / "agents" / "scripts" / "project_context.py",
     ]
+    if pack_dir is not None:
+        pc_candidates.append(pack_dir / "agents" / "scripts" / "project_context.py")
     for cand in pc_candidates:
         if cand.exists():
             try:
@@ -800,7 +1065,6 @@ def phase_session_start(input_json: dict) -> int:
                 pass
             break
 
-    active_cid = state.get("active_correlation_id", "unknown")
     msg = (
         f"harmonist enforcement hooks are active in this session.\n"
         f"{skip_warning}{incidents_banner}{repomap_banner}\n"
@@ -813,7 +1077,7 @@ def phase_session_start(input_json: dict) -> int:
         "2. Delegate subagent work via Task; the FIRST line of every subagent\n"
         "   prompt MUST be 'AGENT: <slug>' (e.g. 'AGENT: qa-verifier'), and the\n"
         "   prompt MUST include a project-precedence preamble (use\n"
-        "   'python3 harmonist/agents/scripts/project_context.py' to\n"
+        f"   'python3 {pack_hint}/agents/scripts/project_context.py' to\n"
         "   generate it).\n"
         "3. After any code change: invoke qa-verifier (required) and any further\n"
         "   reviewers the trigger table in AGENTS.md demands.\n"
@@ -847,11 +1111,11 @@ def phase_after_file_edit(input_json: dict) -> int:
     # otherwise be skipped here and could never satisfy the stop gate's
     # session-handoff requirement -- the gate would loop to exhaustion on
     # every code task on the active (Python) path.
-    mem_paths = cfg.get("memory_paths", [])
-    is_memory = path in mem_paths or any(
-        path.endswith(m.split("/")[-1]) for m in mem_paths
-    )
-    if is_memory:
+    #
+    # Classification requires the file to actually live in the memory dir:
+    # a bare basename match would let `frontend/patterns.md` bypass the
+    # review gate entirely.
+    if _is_memory_update_path(path, cfg):
         state.setdefault("memory_updates", []).append({
             "path": path,
             "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -863,26 +1127,16 @@ def phase_after_file_edit(input_json: dict) -> int:
         return emit_allow()
 
     # Capability scoping: a readonly subagent writing files is a violation.
-    # Only read the agent catalog when a subagent is actually open -- avoids
-    # scanning ~150 agent files on every routine edit.
-    active_calls = [
-        c for c in state.get("subagent_calls", [])
-        if not (c.get("stopped_at") or c.get("completed"))
-    ]
-    if active_calls:
-        catalog = _load_agent_catalog()
-        readonly_violators = []
-        for call in active_calls:
-            slug = (call.get("slug") or "").lower()
-            info = catalog.get(slug) or {}
-            if info.get("readonly") is True:
-                readonly_violators.append(slug)
-        if readonly_violators:
-            state.setdefault("readonly_violations", []).append({
-                "path": path,
-                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "violator_slugs": sorted(set(readonly_violators)),
-            })
+    # The readonly flag is resolved ONCE at subagentStart (targeted file
+    # lookup) and tracked in active_readonly_subagents -- mirrors the .sh
+    # path and avoids scanning the agent catalog on every routine edit.
+    actives = state.get("active_readonly_subagents") or []
+    if actives:
+        state.setdefault("readonly_violations", []).append({
+            "path": path,
+            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "violator_slugs": sorted(set(actives)),
+        })
 
     state.setdefault("writes", []).append({
         "path": path,
@@ -955,10 +1209,19 @@ def phase_subagent_start(input_json: dict) -> int:
         save_state(state)
         log_event("subagentStart: no AGENT: marker found")
         return emit_allow()
+    # Capability scoping: resolve the agent's readonly flag here (one
+    # targeted lookup per launch) so afterFileEdit can flag writes while a
+    # readonly subagent is open without scanning the catalog per edit.
+    readonly_flag = _agent_is_readonly(slug)
     state.setdefault("subagent_calls", []).append({
         "slug": slug,
+        "readonly": readonly_flag,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })
+    if readonly_flag:
+        actives = state.setdefault("active_readonly_subagents", [])
+        if slug not in actives:
+            actives.append(slug)
     save_state(state)
     bump_agent(slug)
     log_event(f"subagentStart slug={slug}")
@@ -985,34 +1248,68 @@ def phase_subagent_stop(input_json: dict) -> int:
             seen = set(state.get("reviewers_seen", []))
             seen.add(slug)
             state["reviewers_seen"] = sorted(seen)
-        # Capability scoping: drop the slug from the active-readonly list so
-        # writes after this invocation aren't flagged (parity with the .sh
-        # path, which tracks active_readonly_subagents).
-        if slug:
-            actives = state.get("active_readonly_subagents") or []
-            if slug in actives:
-                actives.remove(slug)
-                state["active_readonly_subagents"] = actives
         break
+    # Capability scoping: reconcile active_readonly_subagents against the
+    # OPEN call records -- a slug stays active only while at least one of
+    # its invocations is still open. This both releases the slug we just
+    # closed AND clears any stragglers when the stop matched no open
+    # record (e.g. state from an older pack whose task bump wiped call
+    # records): otherwise the readonly flag sticks forever and every
+    # later edit records an un-remediable violation.
+    open_slugs = {
+        (c.get("slug") or "").lower()
+        for c in calls
+        if not (c.get("stopped_at") or c.get("completed"))
+    }
+    actives = state.get("active_readonly_subagents") or []
+    pruned = [s for s in actives if s in open_slugs]
+    if pruned != actives:
+        state["active_readonly_subagents"] = pruned
     save_state(state)
     return emit_allow()
 
 
-def _bump_task(state: dict) -> None:
+def _bump_task(state: dict, consumed: "dict | None" = None) -> None:
+    """Advance to the next task. Clears per-task buckets, with two
+    deliberate survivors:
+
+    * OPEN subagent calls. A still-running background readonly reviewer
+      (bg-regression-runner is readonly + is_background -- the documented
+      happy path) must keep its call record across the bump: otherwise its
+      late subagentStop finds no open record to close, its slug never
+      leaves active_readonly_subagents, and every later edit is flagged as
+      a readonly violation -- an un-remediable missing item that would
+      force-exhaust every subsequent task.
+    * Recorder events that landed AFTER the stop verdict's snapshot.
+      `consumed` carries how many writes / memory_updates /
+      readonly_violations the verdict actually consumed; anything beyond
+      that arrived in the snapshot->bump window, belongs to the NEXT
+      task, and is preserved instead of wiped. None = consume everything
+      (bootstrap semantics)."""
+    consumed = consumed or {}
     sid = state.get("session_id") or f"{int(time.time())}{os.getpid() % 10000:04d}"
     tseq = int(state.get("task_seq", 0)) + 1
     state["session_id"] = sid
     state["task_seq"] = tseq
     state["active_correlation_id"] = f"{sid}-{tseq}"
-    state["writes"] = []
-    state["subagent_calls"] = []
+
+    def _tail(key: str) -> list:
+        items = list(state.get(key, []))
+        n = consumed.get(key)
+        return [] if n is None else items[n:]
+
+    state["writes"] = _tail("writes")
+    state["memory_updates"] = _tail("memory_updates")
+    state["readonly_violations"] = _tail("readonly_violations")
+    state["subagent_calls"] = [
+        c for c in state.get("subagent_calls", [])
+        if not (c.get("stopped_at") or c.get("completed"))
+    ]
     state["reviewers_seen"] = []
-    state["memory_updates"] = []
     state["enforcement_attempts"] = 0
     state["protocol_skipped"] = False
     state.pop("protocol_skip_reason", None)
     state["last_regression_ok"] = False
-    state["readonly_violations"] = []
 
 
 def _persist_incident(state: dict, final_missing: list[str]) -> None:
@@ -1045,18 +1342,44 @@ def _persist_incident(state: dict, final_missing: list[str]) -> None:
         pass
 
 
+def _locked_state_mutation(mutator) -> dict:
+    """Acquire the state lock, reload FRESH state, apply `mutator`, save,
+    release. phase_stop runs its slow checks (validator / repomap
+    subprocesses) without the lock; mutating a fresh copy here keeps
+    recorder updates that landed in between, PROVIDED the mutator itself
+    preserves them -- _bump_task takes `consumed` counts from the verdict
+    snapshot precisely so window arrivals survive the bump instead of
+    being reloaded fresh and then wiped."""
+    lock = _acquire_state_lock()
+    try:
+        st = load_state()
+        mutator(st)
+        save_state(st)
+        return st
+    finally:
+        _release_state_lock(lock)
+
+
 def phase_stop(input_json: dict) -> int:
     cfg = read_cfg()
-    state = load_state()
 
     # PROTOCOL-SKIP marker detection -- scoped to the agent's final-message
     # fields only (see _detect_protocol_skip; scanning the whole input would
     # match the echoed seed/followup template and fail OPEN).
     skip_reason = _detect_protocol_skip(input_json)
-    if skip_reason:
-        state["protocol_skipped"] = True
-        state["protocol_skip_reason"] = skip_reason
-        save_state(state)
+
+    # --- Locked: load state, record the skip flag, snapshot decision inputs.
+    # Released BEFORE the slow section below (handoff file read, validator
+    # subprocess up to 30s, repomap subprocess up to 20s).
+    lock = _acquire_state_lock()
+    try:
+        state = load_state()
+        if skip_reason:
+            state["protocol_skipped"] = True
+            state["protocol_skip_reason"] = skip_reason
+            save_state(state)
+    finally:
+        _release_state_lock(lock)
 
     writes = state.get("writes", [])
     reviewers_seen = set(state.get("reviewers_seen", []))
@@ -1067,6 +1390,14 @@ def phase_stop(input_json: dict) -> int:
     last_regression_ok = bool(state.get("last_regression_ok", False))
     last_regression_at = state.get("last_regression_at", "")
 
+    # What this verdict consumed. Recorder events beyond these counts land
+    # in the snapshot->bump window and survive _bump_task for the next task.
+    consumed_counts = {
+        "writes": len(writes),
+        "memory_updates": len(memory_updates),
+        "readonly_violations": len(readonly_violations),
+    }
+
     def allow(reason: str) -> int:
         log_event(f"stop: allow ({reason})")
         bump_telemetry({
@@ -1076,33 +1407,40 @@ def phase_stop(input_json: dict) -> int:
             "trivial-only":                "summaries.gate_allow_trivial",
         }.get(reason, "summaries.gate_allow_other"), cfg=cfg)
         if reason in ("protocol-satisfied", "protocol-explicitly-skipped", "trivial-only"):
-            _bump_task(state)
-            save_state(state)
-            log_event(f"task_seq bumped; next active_correlation_id={state['active_correlation_id']}")
+            st = _locked_state_mutation(
+                lambda fresh: _bump_task(fresh, consumed=consumed_counts))
+            log_event(f"task_seq bumped; next active_correlation_id={st['active_correlation_id']}")
         return emit_allow()
 
     def followup(message: str) -> int:
-        state["enforcement_attempts"] = int(state.get("enforcement_attempts", 0)) + 1
-        save_state(state)
-        log_event(f"stop: followup (attempt={state['enforcement_attempts']})")
+        def _mut(st: dict) -> None:
+            st["enforcement_attempts"] = int(st.get("enforcement_attempts", 0)) + 1
+        st = _locked_state_mutation(_mut)
+        log_event(f"stop: followup (attempt={st['enforcement_attempts']})")
         bump_telemetry("summaries.gate_followups", cfg=cfg)
         return emit_followup(message)
 
     def exhausted(final_missing: list[str]) -> int:
-        state["enforcement_attempts"] = int(state.get("enforcement_attempts", 0)) + 1
-        state["last_task_status"] = "protocol-exhausted"
-        state["last_exhausted_correlation_id"] = state.get("active_correlation_id", "")
-        _persist_incident(state, final_missing)
+        attempts_seen = {"n": 0}
+
+        def _mut(st: dict) -> None:
+            st["enforcement_attempts"] = int(st.get("enforcement_attempts", 0)) + 1
+            attempts_seen["n"] = st["enforcement_attempts"]
+            st["last_task_status"] = "protocol-exhausted"
+            st["last_exhausted_correlation_id"] = st.get("active_correlation_id", "")
+            _persist_incident(st, final_missing)
+            _bump_task(st, consumed=consumed_counts)
+
+        st = _locked_state_mutation(_mut)
+        attempts = attempts_seen["n"]
         log_event(
-            f"stop: EXHAUSTED after {state['enforcement_attempts']} attempts; "
-            f"cid={state.get('active_correlation_id','')}; missing={final_missing}"
+            f"stop: EXHAUSTED after {attempts} attempts; "
+            f"cid={st.get('last_exhausted_correlation_id', '')}; missing={final_missing}"
         )
         bump_telemetry("summaries.gate_exhausted", cfg=cfg)
-        _bump_task(state)
-        save_state(state)
         msg = (
             f"Protocol enforcement EXHAUSTED after "
-            f"{state['enforcement_attempts']} attempts.\n\n"
+            f"{attempts} attempts.\n\n"
             "This task has been force-closed as PROTOCOL-VIOLATED. The state\n"
             "file records a protocol-exhausted incident the next session will\n"
             "surface to the user. Fix the missing steps before starting new\n"
@@ -1150,7 +1488,7 @@ def phase_stop(input_json: dict) -> int:
         suffix = f" (last run at {last_regression_at})" if last_regression_at else ""
         missing.append(
             "real regression run has not passed this task. "
-            "Run: python3 harmonist/agents/scripts/run_regression.py" + suffix
+            f"Run: python3 {_pack_hint()}/agents/scripts/run_regression.py" + suffix
         )
 
     # Impact-aware gate: if this task edited code that the repo map says
@@ -1171,32 +1509,35 @@ def phase_stop(input_json: dict) -> int:
             bump_telemetry("summaries.affected_tests_gated", cfg=cfg)
 
     if cfg.get("require_session_handoff_update", True):
-        handoff_paths = [
-            e.get("path", "") for e in memory_updates
-            if e.get("path", "").endswith("session-handoff.md")
-        ]
-        if not handoff_paths:
-            missing.append("session-handoff.md was not updated this task")
+        # The documented write path is the memory.py CLI -- a shell command
+        # that never fires afterFileEdit -- so memory_updates may not record
+        # the handoff even when it WAS updated. _locate_handoff_file falls
+        # back to the file on disk (next to the memory CLI / at the
+        # configured memory path) and we accept it when it contains an entry
+        # for the active correlation id (line-anchored, so `...-1` cannot
+        # match inside `...-10`).
+        handoff_file = _locate_handoff_file(memory_updates, cfg)
+        if handoff_file is None:
+            missing.append("session-handoff.md was not updated this task "
+                           "(no handoff file found on disk either)")
         else:
-            handoff_file = None
-            for p in handoff_paths:
-                fp = Path(p)
-                if fp.exists():
-                    handoff_file = fp
-                    break
-            if handoff_file is None:
-                missing.append(f"session-handoff.md at {handoff_paths[0]} not readable")
-            else:
+            try:
                 content = handoff_file.read_text(encoding="utf-8", errors="replace")
-                if active_cid and f"correlation_id: {active_cid}" not in content:
-                    missing.append(
-                        f"session-handoff.md has no entry with correlation_id={active_cid} "
-                        f"(the current task). Use memory.py to append one."
-                    )
+            except Exception:
+                content = ""
+            if not _handoff_has_cid(content, active_cid):
+                missing.append(
+                    f"session-handoff.md has no entry with correlation_id={active_cid} "
+                    f"(the current task). Use memory.py to append one."
+                )
 
-    # Validate memory files.
+    # Validate memory files. Runs whenever the handoff requirement is being
+    # enforced -- NOT only when an edit-tool write was recorded: the
+    # documented write path is the memory.py CLI (no afterFileEdit), so an
+    # empty memory_updates must not skip schema validation of the handoff
+    # the disk-fallback just accepted.
     cli = memory_cli_path()
-    if cli and memory_updates:
+    if cli and (memory_updates or cfg.get("require_session_handoff_update", True)):
         validator = cli.with_name("validate.py")
         if validator.exists():
             try:
@@ -1263,7 +1604,18 @@ def phase_before_shell_execution(input_json: dict) -> int:
         return emit({"permission": "allow"})
     cmd = str(input_json.get("command") or input_json.get("cmd") or "")
     if not cmd.strip():
-        return emit({"permission": "allow"})
+        # No command text: either the host sent an empty payload or stdin
+        # timed out (see _read_stdin_payload). We cannot evaluate the
+        # command against the safety patterns, so allowing silently would
+        # fail OPEN on exactly the events this gate exists for. Ask.
+        log_event("beforeShellExecution: empty payload; cannot evaluate -> ask")
+        msg = (
+            "The command safety gate received no command text from the "
+            "host (empty hook payload), so it could not be checked against "
+            "the dangerous-command patterns. Confirm the command manually. "
+            "(Disable this gate via hitl_enabled in .cursor/hooks/config.json.)"
+        )
+        return emit({"permission": "ask", "user_message": msg, "agent_message": msg})
     patterns = cfg.get("dangerous_command_patterns") or DEFAULT_DANGEROUS_COMMAND_PATTERNS
     for pat in patterns:
         try:
@@ -1281,7 +1633,11 @@ def phase_before_shell_execution(input_json: dict) -> int:
                     "/ hitl_enabled in .cursor/hooks/config.json.)"
                 )
                 return emit({"permission": action, "user_message": msg, "agent_message": msg})
-        except re.error:
+        except re.error as e:
+            # A user-supplied pattern that does not compile is a silent hole
+            # in the safety net -- name it so the operator can fix config.json.
+            log_event(f"beforeShellExecution: WARNING invalid dangerous_command_pattern "
+                      f"{pat!r} skipped ({e})")
             continue
     return emit({"permission": "allow"})
 
@@ -1294,6 +1650,34 @@ PHASES = {
     "stop":                phase_stop,
     "beforeShellExecution": phase_before_shell_execution,
 }
+
+
+def _read_stdin_payload(timeout: float = 5.0) -> str:
+    """Read the hook payload from stdin without risking an eternal hang.
+
+    A host that launches the hook but never writes/closes stdin would block
+    a bare sys.stdin.read() forever -- freezing Cursor's tool pipeline. On
+    POSIX we wait up to `timeout` seconds for the first byte via select();
+    if nothing arrives we proceed with an empty payload (every phase
+    tolerates {}). Windows has no select() on pipes, so it keeps the plain
+    read (the documented Cursor host behaviour closes stdin promptly)."""
+    if os.name == "nt":
+        return sys.stdin.read()
+    try:
+        import select
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if not ready:
+            log_event(f"stdin: no payload within {timeout:.0f}s; proceeding with empty input")
+            return ""
+        return sys.stdin.read()
+    except Exception:
+        return sys.stdin.read()
+
+
+# Phases that manage the state lock themselves (sessionStart / stop need to
+# run subprocesses OUTSIDE the lock; beforeShellExecution never touches
+# session.json). The quick recorder phases are wrapped by main().
+_SELF_LOCKING_PHASES = {"sessionStart", "stop", "beforeShellExecution"}
 
 
 def main(argv: list[str]) -> int:
@@ -1309,16 +1693,18 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"hook_runner.py: unknown phase {phase!r}. "
                          f"Known: {', '.join(PHASES)}\n")
         return 2
-    raw = sys.stdin.read()
+    raw = _read_stdin_payload()
     try:
         input_json = json.loads(raw) if raw.strip() else {}
     except Exception:
         input_json = {}
 
     fn = PHASES[phase]
-    # beforeShellExecution doesn't touch session.json, so it needs no lock.
-    # Every other phase does a read-modify-write that must be serialized.
-    lock = _acquire_state_lock() if phase != "beforeShellExecution" else None
+    # Recorder phases (afterFileEdit / subagentStart / subagentStop) do one
+    # fast read-modify-write that must be serialized; hold the lock around
+    # them here. sessionStart and stop lock around their state sections
+    # internally so their subprocess work runs unlocked.
+    lock = _acquire_state_lock() if phase not in _SELF_LOCKING_PHASES else None
     try:
         return fn(input_json)
     except Exception as e:

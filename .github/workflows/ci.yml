@@ -1,3 +1,9 @@
+# ───────────────────────────────────────────────────────────────────────────
+# Pack-repo CI. If you copied the harmonist pack INTO another project
+# (especially into its root), DELETE this file — it is not meant to run in
+# host projects. It validates the pack itself, not your code.
+# ───────────────────────────────────────────────────────────────────────────
+
 name: CI
 
 on:
@@ -37,7 +43,7 @@ jobs:
       - name: project_context.py tests
         run: bash agents/scripts/test_project_context.sh
 
-      - name: project_context smoke against pack AGENTS.md
+      - name: project_context smoke against pack AGENTS.template.md
         run: test -n "$(python3 agents/scripts/project_context.py)"
 
       - name: verify_integration.py tests

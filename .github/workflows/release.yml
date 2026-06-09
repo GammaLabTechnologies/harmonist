@@ -1,3 +1,9 @@
+# ───────────────────────────────────────────────────────────────────────────
+# Pack-repo CI. If you copied the harmonist pack INTO another project
+# (especially into its root), DELETE this file — it is not meant to run in
+# host projects. It drafts releases of the pack itself.
+# ───────────────────────────────────────────────────────────────────────────
+
 name: Release
 
 on:

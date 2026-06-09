@@ -1,8 +1,9 @@
 ---
+schema_version: 2
 name: frontend-engineer
 description: Implements UI components, pages, state management, and API integration for the frontend. Use for client-side code changes.
 category: engineering
-protocol: strict
+protocol: persona
 readonly: false
 is_background: false
 model: claude-opus-4-8

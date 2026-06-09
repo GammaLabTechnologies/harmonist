@@ -1,5 +1,11 @@
 # 🔄 Phase 6 Playbook — Operate & Evolve
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Duration**: Ongoing | **Agents**: 12+ (rotating) | **Governance**: Studio Producer
 
 ---
@@ -56,7 +62,7 @@ Sustained operations with continuous improvement. The product is live — now ma
 | Agent | Activity | Output |
 |-------|----------|--------|
 | **Executive Summary Generator** | C-suite reporting | Monthly Executive Summary |
-| **Finance Tracker** | Financial performance review | Monthly Financial Report |
+| **FP&A Analyst** | Financial performance review | Monthly Financial Report |
 | **Legal Compliance Checker** | Regulatory monitoring | Compliance Status Report |
 | **Trend Researcher** | Market intelligence update | Monthly Market Brief |
 | **Brand Guardian** | Brand consistency audit | Brand Health Report |
@@ -205,7 +211,7 @@ Platform-Specific:
 
 ## Financial Operations
 
-### Monthly Financial Review (Finance Tracker)
+### Monthly Financial Review (FP&A Analyst)
 
 ```
 1. Revenue Analysis
@@ -305,7 +311,7 @@ Output: Quarterly Strategic Review → Updated roadmap and priorities
 | **Growth** | Activation rate | > 60% | Analytics Reporter |
 | **Retention** | Day 7 retention | > 40% | Analytics Reporter |
 | **Retention** | Day 30 retention | > 20% | Analytics Reporter |
-| **Financial** | LTV:CAC ratio | > 3:1 | Finance Tracker |
+| **Financial** | LTV:CAC ratio | > 3:1 | FP&A Analyst |
 | **Financial** | Portfolio ROI | > 25% | Studio Producer |
 | **Quality** | NPS score | > 50 | Feedback Synthesizer |
 | **Quality** | Support resolution time | < 4 hours | Support Responder |

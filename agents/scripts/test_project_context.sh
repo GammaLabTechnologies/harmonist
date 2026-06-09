@@ -61,6 +61,16 @@ assert_contains "modules present"     "billing/"             "$out"
 assert_contains "invariants present"  "No floats for money"  "$out"
 assert_not_contains "resilience skipped by default" "exponential backoff" "$out"
 
+# --- Test 1b: --section overrides the default section list -------------------
+sect_out="$(python3 "$SCRIPT" --path "$TMP/AGENTS.md" --section Resilience)"
+assert_contains     "--section extracts requested section" "exponential backoff" "$sect_out"
+assert_not_contains "--section drops default sections"     "Go 1.22"             "$sect_out"
+
+# Repeatable --section preserves the requested order.
+multi_out="$(python3 "$SCRIPT" --path "$TMP/AGENTS.md" --section Resilience --section Modules)"
+assert_contains "repeated --section includes both" "exponential backoff" "$multi_out"
+assert_contains "repeated --section includes both" "billing/"            "$multi_out"
+
 # --- Test 2: missing AGENTS.md exits 1 --------------------------------------
 set +e
 python3 "$SCRIPT" --path "$TMP/does-not-exist.md" >/dev/null 2>&1

@@ -8,7 +8,7 @@ readonly: false
 is_background: false
 model: claude-opus-4-8
 tags: [red-team, post-exploitation, penetration-testing, security]
-domains: [all]
+domains: [pentest]
 distinguishes_from: [security-web-app-pentester, security-exploit-developer, engineering-incident-response-commander]
 disambiguation: Models post-exploitation reach (lateral movement, priv-esc, persistence) for an authorized red-team. For initial web exploitation use security-web-app-pentester; for the defensive/IR side use engineering-incident-response-commander.
 version: 1.0.0

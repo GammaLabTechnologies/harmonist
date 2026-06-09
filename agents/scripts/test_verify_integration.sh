@@ -9,6 +9,8 @@ set -euo pipefail
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify_integration.py"
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Pack AGENTS template (canonical: AGENTS.template.md; legacy fallback).
+PACK_TPL="$PACK/AGENTS.template.md"; [[ -f "$PACK_TPL" ]] || PACK_TPL="$PACK/AGENTS.md"
 TMP="$(mktemp -d)"
 trap "rm -rf $TMP" EXIT
 
@@ -52,7 +54,7 @@ assert_has_pass() {
 
 BAD="$TMP/bad-project"
 mkdir -p "$BAD"
-cp "$PACK/AGENTS.md" "$BAD/AGENTS.md"
+cp "$PACK_TPL" "$BAD/AGENTS.md"
 
 set +e
 out="$(python3 "$SCRIPT" --project "$BAD" 2>&1)"
@@ -89,7 +91,7 @@ sed \
   -e 's/\[dev\/staging\/prod\]/staging, prod/' \
   -e 's|`module-a/`|`backend/`|' \
   -e 's|`module-b/`|`frontend/`|' \
-  "$PACK/AGENTS.md" > "$GOOD/AGENTS.md"
+  "$PACK_TPL" > "$GOOD/AGENTS.md"
 
 # Strip CUSTOMIZE comments (verify_integration.py asserts none remain in
 # project-owned prose) and rewrite the Invariants section so it is not

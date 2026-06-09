@@ -31,7 +31,7 @@ Closes #
 ```
 # Example:
 $ python3 agents/scripts/check_pack_health.py
-Summary: 18/18 passed, 0 failure(s).
+Summary: 19/19 passed, 0 failure(s).
 
 $ python3 agents/scripts/lint_agents.py
 Linted 186 agent file(s): 0 error(s), 0 warning(s).

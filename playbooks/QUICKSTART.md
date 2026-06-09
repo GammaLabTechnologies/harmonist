@@ -1,5 +1,11 @@
 # ⚡ NEXUS Quick-Start Guide
 
+> **LEGACY NEXUS PLAYBOOK — predates the enforcement protocol.** Agent names
+> below are display names, not slugs: dispatch subagents via `AGENT: <slug>`
+> markers per the project `AGENTS.md`; routing authority is the project
+> `AGENTS.md` + `agents/index.json`. Treat sequencing advice as inspiration,
+> not protocol.
+
 > **Get from zero to orchestrated multi-agent pipeline in 5 minutes.**
 
 ---
@@ -30,7 +36,7 @@ Specification: [DESCRIBE YOUR PROJECT OR LINK TO SPEC]
 
 Execute the complete NEXUS pipeline:
 - Phase 0: Discovery (Trend Researcher, Feedback Synthesizer, UX Researcher, Analytics Reporter, Legal Compliance Checker, Tool Evaluator)
-- Phase 1: Strategy (Studio Producer, Senior Project Manager, Sprint Prioritizer, UX Architect, Brand Guardian, Backend Architect, Finance Tracker)
+- Phase 1: Strategy (Studio Producer, Laravel/Livewire Project Manager, Sprint Prioritizer, UX Architect, Brand Guardian, Backend Architect, FP&A Analyst)
 - Phase 2: Foundation (DevOps Automator, Frontend Developer, Backend Architect, UX Architect, Infrastructure Maintainer)
 - Phase 3: Build (Dev↔QA loops — all engineering + Evidence Collector)
 - Phase 4: Harden (Reality Checker, Performance Benchmarker, API Tester, Legal Compliance Checker)
@@ -55,7 +61,7 @@ Timeline: [TARGET WEEKS]
 Skip Phase 0 (market already validated).
 
 Sprint team:
-- PM: Senior Project Manager, Sprint Prioritizer
+- PM: Laravel/Livewire Project Manager, Sprint Prioritizer
 - Design: UX Architect, Brand Guardian
 - Engineering: Frontend Developer, Backend Architect, DevOps Automator
 - QA: Evidence Collector, Reality Checker, API Tester
@@ -162,7 +168,7 @@ Mobile App Builder  │ UX Architect        │ Twitter Engager
 AI Engineer         │ Brand Guardian      │ TikTok Strategist
 DevOps Automator    │ Visual Storyteller  │ Instagram Curator
 Rapid Prototyper    │ Whimsy Injector     │ Reddit Community Builder
-Senior Developer    │ Image Prompt Eng.   │ App Store Optimizer
+Laravel Specialist  │ Image Prompt Eng.   │ App Store Optimizer
                     │                     │ Social Media Strategist
 ────────────────────┼─────────────────────┼──────────────────────
 PRODUCT             │ PROJECT MGMT        │ TESTING
@@ -170,16 +176,16 @@ Sprint Prioritizer  │ Studio Producer     │ Evidence Collector
 Trend Researcher    │ Project Shepherd    │ Reality Checker
 Feedback Synthesizer│ Studio Operations   │ Test Results Analyzer
                     │ Experiment Tracker  │ Performance Benchmarker
-                    │ Senior Project Mgr  │ API Tester
+                    │ Laravel/Livewire PM │ API Tester
                     │                     │ Tool Evaluator
                     │                     │ Workflow Optimizer
 ────────────────────┼─────────────────────┼──────────────────────
 SUPPORT             │ SPATIAL             │ SPECIALIZED
 Support Responder   │ XR Interface Arch.  │ Agents Orchestrator
 Analytics Reporter  │ macOS Spatial/Metal │ Analytics Reporter
-Finance Tracker     │ XR Immersive Dev    │ LSP/Index Engineer
+FP&A Analyst        │ XR Immersive Dev    │ LSP/Index Engineer
 Infra Maintainer    │ XR Cockpit Spec.    │ Sales Data Extraction
-Legal Compliance    │ visionOS Spatial    │ Data Consolidation
+Legal Compliance    │ visionOS Spatial    │ Pipeline Analyst
 Exec Summary Gen.   │ Terminal Integration│ Report Distribution
 ```
 

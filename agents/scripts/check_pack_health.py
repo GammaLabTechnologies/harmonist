@@ -21,9 +21,9 @@ Checks (all fatal unless noted):
   8. Every required script is present AND executable.
   9. hooks/ + memory/ subtrees complete.
  10. tags.json loads and has the declared vocab size.
- 11. README / AGENTS.md / GUIDE_*.md / integration-prompt.md claim the
-     same total and per-category counts as agents/index.json
-     (no stale marketing numbers).
+ 11. README / AGENTS.template.md (legacy: AGENTS.md) / GUIDE_*.md /
+     integration-prompt.md claim the same total and per-category counts
+     as agents/index.json (no stale marketing numbers).
 
 Exit codes:
     0 = pack is healthy
@@ -37,14 +37,46 @@ from __future__ import annotations
 import sys as _asp_sys
 if _asp_sys.version_info < (3, 9):
     _asp_cur = "%d.%d" % (_asp_sys.version_info[0], _asp_sys.version_info[1])
+    # Guarded argv[0] FIRST: an empty argv (embedded interpreter) must get
+    # the friendly message / JSON below, not an IndexError traceback.
+    _asp_argv0 = _asp_sys.argv[0] if _asp_sys.argv else ""
     _asp_sys.stderr.write(
         "harmonist requires Python 3.9+ (found " + _asp_cur + ").\n"
         "Install a modern Python and retry:\n"
         "  macOS:   brew install python@3.12 && hash -r\n"
         "  Ubuntu:  sudo apt install python3.12 python3.12-venv\n"
         "  pyenv:   pyenv install 3.12.0 && pyenv local 3.12.0\n"
-        "Then:     python3 " + _asp_sys.argv[0] + "\n"
+        "Then:     python3 " + _asp_argv0 + "\n"
     )
+    # Cursor hooks read a JSON response from stdout; exiting without one
+    # makes Cursor treat the hook as broken and silently drop the whole
+    # enforcement layer -- including the fail-closed stop gate. When the
+    # guarded script is the hook runner, answer the phase in-protocol
+    # (shapes match hook_runner.py: emit_allow / "ask" / followup) and
+    # exit 0 so the response is honoured. Every other script keeps the
+    # plain exit(3).
+    _asp_base = _asp_argv0.replace("\\", "/").split("/")[-1]
+    if _asp_base == "hook_runner.py":
+        _asp_phase = _asp_sys.argv[1] if len(_asp_sys.argv) > 1 else ""
+        if _asp_phase == "beforeShellExecution":
+            _asp_sys.stdout.write(
+                '{"permission": "ask", "user_message": '
+                '"harmonist hooks need Python 3.9+ (found ' + _asp_cur + '); '
+                'the command safety gate cannot evaluate this command. '
+                'Confirm it manually and upgrade python3."}\n'
+            )
+        elif _asp_phase == "stop":
+            _asp_sys.stdout.write(
+                '{"followup_message": '
+                '"harmonist enforcement hooks need Python 3.9+ (found '
+                + _asp_cur + ') and cannot verify the protocol gate '
+                '(reviewers / session-handoff are NOT being checked). '
+                'Upgrade python3 -- e.g. brew install python@3.12 or '
+                'apt install python3.12 -- then retry."}\n'
+            )
+        else:
+            _asp_sys.stdout.write("{}\n")
+        _asp_sys.exit(0)
     _asp_sys.exit(3)
 # === PY-GUARD:END ===
 
@@ -148,7 +180,8 @@ REQUIRED_MEMORY_FILES = [
 REQUIRED_TOP_FILES = [
     "VERSION",
     "CHANGELOG.md",
-    "AGENTS.md",
+    # The AGENTS template is checked via _agents_template_name() so both
+    # the canonical AGENTS.template.md and legacy AGENTS.md packs pass.
     "README.md",
     "integration-prompt.md",
     "agents/SCHEMA.md",
@@ -156,6 +189,13 @@ REQUIRED_TOP_FILES = [
     "agents/tags.json",
     "agents/index.json",
 ]
+
+
+def _agents_template_name(pack: Path) -> str:
+    """The pack's AGENTS template file name. Canonical:
+    `AGENTS.template.md`; legacy packs predating the rename: `AGENTS.md`."""
+    return ("AGENTS.template.md"
+            if (pack / "AGENTS.template.md").exists() else "AGENTS.md")
 
 
 @dataclass
@@ -350,6 +390,60 @@ def check_py_guards_fresh(pack: Path) -> CheckResult:
     )
 
 
+def check_strict_slugs_fallback(pack: Path) -> CheckResult:
+    """`_FALLBACK_ROWS` in strict_slugs.py is a hand-maintained snapshot
+    used only when agents/index.json is unreadable (half-copied pack). If
+    it drifts from the index derivation, that degraded mode would silently
+    install / verify the WRONG strict set -- exactly how wcag-a11y-gate
+    went missing from five hand-copied lists before strict_slugs.py
+    existed. When the index IS readable, the two must agree."""
+    idx = pack / "agents" / "index.json"
+    if not idx.exists():
+        return CheckResult(
+            "strict-slugs-fallback", True,
+            "index.json absent; fallback is authoritative (nothing to compare)",
+        )
+    try:
+        agents = json.loads(idx.read_text(encoding="utf-8"))["agents"]
+    except Exception as e:
+        return CheckResult(
+            "strict-slugs-fallback", False,
+            f"agents/index.json unreadable: {e.__class__.__name__}",
+            "Regenerate: python3 agents/scripts/build_index.py",
+        )
+    # Same derivation as strict_slugs._load_rows -- keep in sync.
+    derived = sorted(
+        (str(a["slug"]), str(a["category"]), bool(a.get("is_background")))
+        for a in agents
+        if a.get("protocol") == "strict"
+        or a.get("category") in ("orchestration", "review")
+    )
+    try:
+        sys.path.insert(0, str(pack / "agents" / "scripts"))
+        import strict_slugs
+        fallback = sorted(tuple(r) for r in strict_slugs._FALLBACK_ROWS)
+    except Exception as e:
+        return CheckResult(
+            "strict-slugs-fallback", False,
+            f"could not import strict_slugs.py: {e.__class__.__name__}",
+            "Restore agents/scripts/strict_slugs.py from the pack.",
+        )
+    if derived == fallback:
+        return CheckResult(
+            "strict-slugs-fallback", True,
+            f"_FALLBACK_ROWS matches the index derivation ({len(derived)} strict agents)",
+        )
+    missing = [r for r in derived if r not in fallback]
+    stale = [r for r in fallback if r not in derived]
+    return CheckResult(
+        "strict-slugs-fallback", False,
+        f"_FALLBACK_ROWS drifted from index.json "
+        f"(missing={missing[:3]}, stale={stale[:3]})",
+        "Update _FALLBACK_ROWS in agents/scripts/strict_slugs.py to match "
+        "the index derivation.",
+    )
+
+
 def check_version(pack: Path) -> CheckResult:
     vf = pack / "VERSION"
     if not vf.exists():
@@ -456,9 +550,11 @@ def check_agent_count(pack: Path) -> CheckResult:
 # claims a count that disagrees with agents/index.json, treat it as
 # stale marketing -- the kind of drift that made "175 agents" ship in
 # a pack that already had 186.
+# "AGENTS-TEMPLATE" is replaced at check time with the pack's actual
+# template name (AGENTS.template.md, or legacy AGENTS.md).
 _COUNT_CLAIM_FILES = [
     "README.md",
-    "AGENTS.md",
+    "AGENTS-TEMPLATE",
     "GUIDE_EN.md",
     "integration-prompt.md",
     "agents/README.md",
@@ -523,6 +619,16 @@ _DISPLAY_ROW_RE = re.compile(
     r"(?P<rest>.+?)\|\s*$"
 )
 
+# agents/README.md additionally advertises per-category counts inside a
+# code-fence directory tree, e.g.:
+#   ├── orchestration/      strict, readonly   (2 agents)
+#   ├── design/             persona            (8)
+# Tree-drawing characters only (not ASCII '|'), so markdown tables never
+# match here.
+_TREE_ROW_RE = re.compile(
+    r"^[│├└─\s]*(?P<cat>[a-z][a-z0-9-]*)/\s.*?\((?P<n>\d+)(?:\s+agents?)?\)"
+)
+
 
 def check_count_claims(pack: Path) -> CheckResult:
     idx_path = pack / "agents" / "index.json"
@@ -540,8 +646,11 @@ def check_count_claims(pack: Path) -> CheckResult:
     by_cat: dict = idx.get("counts", {}).get("by_category", {}) or {}
     known_cats = set(by_cat.keys())
 
+    template_rel = _agents_template_name(pack)
     problems: list[str] = []
     for rel in _COUNT_CLAIM_FILES:
+        if rel == "AGENTS-TEMPLATE":
+            rel = template_rel
         fp = pack / rel
         if not fp.exists():
             continue
@@ -559,8 +668,8 @@ def check_count_claims(pack: Path) -> CheckResult:
                         f"(index.json has {total}): '{m.group(0).strip()}'"
                     )
         # Per-category rows, scoped to tables.
-        # README / AGENTS / agents/README use the backticked-slug form.
-        if rel in ("README.md", "AGENTS.md", "agents/README.md"):
+        # README / AGENTS template / agents/README use the backticked-slug form.
+        if rel in ("README.md", template_rel, "agents/README.md"):
             for ln, line in enumerate(text.splitlines(), 1):
                 mr = _CATEGORY_ROW_RE.match(line)
                 if not mr:
@@ -580,6 +689,23 @@ def check_count_claims(pack: Path) -> CheckResult:
                     problems.append(
                         f"{rel}:{ln} category `{cat}` row has counts "
                         f"{nums}; index.json by_category[{cat}]={expected}"
+                    )
+        # agents/README.md's code-fence layout tree also carries per-
+        # category counts; markdown tables above don't cover it.
+        if rel == "agents/README.md":
+            for ln, line in enumerate(text.splitlines(), 1):
+                mt = _TREE_ROW_RE.match(line)
+                if not mt:
+                    continue
+                cat = mt.group("cat")
+                if cat not in known_cats:
+                    continue
+                n = int(mt.group("n"))
+                expected = int(by_cat.get(cat, -1))
+                if expected >= 0 and n != expected:
+                    problems.append(
+                        f"{rel}:{ln} layout tree says `{cat}` has {n}; "
+                        f"index.json by_category[{cat}]={expected}"
                     )
         # GUIDE_EN.md uses a display-name table. Without this check the
         # guide silently drifted from index.json -- e.g. "Engineering |
@@ -713,7 +839,8 @@ def check_memory(pack: Path) -> CheckResult:
 
 
 def check_top_files(pack: Path) -> CheckResult:
-    missing = [f for f in REQUIRED_TOP_FILES if not (pack / f).exists()]
+    required = REQUIRED_TOP_FILES + [_agents_template_name(pack)]
+    missing = [f for f in required if not (pack / f).exists()]
     if missing:
         return CheckResult(
             "top-files", False,
@@ -721,7 +848,7 @@ def check_top_files(pack: Path) -> CheckResult:
             "Pack is incomplete; re-clone.",
         )
     return CheckResult("top-files", True,
-                       f"{len(REQUIRED_TOP_FILES)} required top-level files present")
+                       f"{len(required)} required top-level files present")
 
 
 def check_tags_json(pack: Path) -> CheckResult:
@@ -757,6 +884,7 @@ CHECKS = [
     check_count_claims,
     check_index_fresh,
     check_py_guards_fresh,
+    check_strict_slugs_fallback,
     check_manifest,
     check_agent_safety,
     check_agent_freshness,
@@ -777,7 +905,9 @@ def main(argv: list[str]) -> int:
 
     pack = args.pack or Path(__file__).resolve().parent.parent.parent
     pack = pack.resolve()
-    if not (pack / "VERSION").exists() and not (pack / "AGENTS.md").exists():
+    if not (pack / "VERSION").exists() \
+            and not (pack / "AGENTS.template.md").exists() \
+            and not (pack / "AGENTS.md").exists():
         print(f"check_pack_health: {pack} does not look like a pack root", file=sys.stderr)
         return 2
 

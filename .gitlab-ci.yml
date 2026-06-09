@@ -1,3 +1,9 @@
+# ───────────────────────────────────────────────────────────────────────────
+# Pack-repo CI. If you copied the harmonist pack INTO another project
+# (especially into its root), DELETE this file — it is not meant to run in
+# host projects. It validates the pack itself, not your code.
+# ───────────────────────────────────────────────────────────────────────────
+
 stages:
   - validate
 
@@ -62,7 +68,7 @@ project-context:
   script:
     - echo "Testing project_context.py preamble extractor..."
     - bash agents/scripts/test_project_context.sh
-    - "echo \"Smoke: pack's own AGENTS.md produces a non-empty preamble...\""
+    - "echo \"Smoke: pack's own AGENTS.template.md produces a non-empty preamble...\""
     - test -n "$(python3 agents/scripts/project_context.py)"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -70,7 +76,7 @@ project-context:
     - changes:
         - .gitlab-ci.yml
         - agents/scripts/project_context.py
-        - AGENTS.md
+        - AGENTS.template.md
 
 verify-integration:
   stage: validate
@@ -153,7 +159,7 @@ upgrade:
         - MANIFEST.sha256
         - VERSION
         - CHANGELOG.md
-        - AGENTS.md
+        - AGENTS.template.md
         - hooks/**
         - memory/memory.py
         - memory/validate.py
