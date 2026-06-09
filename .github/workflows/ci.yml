@@ -44,7 +44,7 @@ jobs:
         run: bash agents/scripts/test_project_context.sh
 
       - name: project_context smoke against pack AGENTS.template.md
-        run: test -n "$(python3 agents/scripts/project_context.py)"
+        run: test -n "$(python3 agents/scripts/project_context.py --path AGENTS.template.md)"
 
       - name: verify_integration.py tests
         run: bash agents/scripts/test_verify_integration.sh

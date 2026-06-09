@@ -80,6 +80,18 @@ if _asp_sys.version_info < (3, 9):
             _asp_sys.stdout.write("{}\n")
         _asp_sys.exit(0)
     _asp_sys.exit(3)
+# Force UTF-8 on stdio so status glyphs (checkmarks, arrows) print on legacy
+# Windows code pages (cp1252) instead of raising UnicodeEncodeError. Reached
+# only on Python 3.9+ (older interpreters exit above); a stream without
+# .reconfigure (e.g. a captured StringIO) simply keeps its current encoding.
+try:
+    _asp_sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+try:
+    _asp_sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 # === PY-GUARD:END ===
 
 import calendar

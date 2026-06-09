@@ -13,6 +13,26 @@ what the upgrade tool is allowed to touch.
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-06-10
+
+Patch release: the native-Windows stdio fix discovered while turning the
+Windows CI job green for the first time. No catalog or protocol changes.
+
+### Fixed
+
+- **Windows `UnicodeEncodeError` on status glyphs.** Entry scripts that print
+  check / cross marks and arrows (`check_pack_health.py`, `integrate.py`,
+  `verify_integration.py`, `onboard.py`, the `scan_*.py` auditors, and more)
+  crashed on a default Windows console (cp1252) because those glyphs are not
+  encodable there. The shared Python-version guard now reconfigures
+  stdout/stderr to UTF-8 on Python 3.9+ (a no-op on macOS/Linux, where stdio
+  is already UTF-8), re-stamped into every guarded entry script. This is what
+  the README's "runs natively on Windows, no WSL" promise needed to actually
+  hold — the Windows CI job now passes end to end.
+- **CI `project_context` smoke** now targets the renamed pack template
+  (`--path AGENTS.template.md`) instead of running argument-less and failing
+  with "no AGENTS.md found" after the v1.2.0 rename.
+
 ## [1.2.0] — 2026-06-10
 
 Maintenance release: install-UX overhaul plus reliability hardening across
