@@ -13,6 +13,20 @@ what the upgrade tool is allowed to touch.
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-06-10
+
+Patch release: the final native-Windows determinism fix. With v1.2.1 (stdout
+glyphs) and v1.2.2 (catalog file reads), this makes the native-Windows CI job
+pass end to end for the first time — both the Linux and Windows jobs are green.
+
+### Fixed
+
+- **Deterministic `index.json` across operating systems.** `build_index.py`
+  wrote each agent's `path` field with `str(Path(...))`, producing backslashes
+  on Windows, so `build_index.py --check` flagged the committed (forward-slash)
+  index as stale on the Windows runner. It now uses `.as_posix()`, matching
+  `build_manifest.py`. No change to `index.json` on POSIX.
+
 ## [1.2.2] — 2026-06-10
 
 Patch release completing native-Windows support: the catalog-read counterpart

@@ -16,7 +16,7 @@
 [![CI](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml/badge.svg)](https://github.com/GammaLabTechnologies/harmonist/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version 1.2.2](https://img.shields.io/badge/version-1.2.2-brightgreen.svg)](CHANGELOG.md)
+[![Version 1.2.3](https://img.shields.io/badge/version-1.2.3-brightgreen.svg)](CHANGELOG.md)
 [![Agents: 193](https://img.shields.io/badge/agents-193-purple.svg)](agents/index.json)
 [![Tests: 550+](https://img.shields.io/badge/tests-550+-success.svg)](#testing)
 [![Stdlib only](https://img.shields.io/badge/dependencies-stdlib%20only-lightgrey.svg)](#requirements)
